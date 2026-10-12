@@ -1,0 +1,6 @@
+{
+  "name": "Capture Attendance",
+  "description": "Native kiosk attendance capture with face-api.js 128-d face recognition, automated check-in/out, and location derivation.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

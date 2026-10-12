@@ -1,0 +1,49 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="120dp"
+    android:height="34dp"
+    android:viewportWidth="120"
+    android:viewportHeight="34">
+    <!-- ElintOm Emblem -->
+    <path
+        android:fillColor="#1A5E66"
+        android:pathData="M 6,17 C 6,10.9 10.9,6 17,6 C 23.1,6 28,10.9 28,17 C 28,23.1 23.1,28 17,28 C 10.9,28 6,23.1 6,17 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M 12,17 L 22,17 M 17,12 L 17,22" />
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M 23,9 A 3,3 0 1,0 23,15 A 3,3 0 1,0 23,9 Z" />
+
+    <!-- Text: ElintOm -->
+    <!-- E -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M 36,10 L 44,10 L 44,12.5 L 39,12.5 L 39,15.5 L 43.5,15.5 L 43.5,18 L 39,18 L 39,21.5 L 44.5,21.5 L 44.5,24 L 36,24 Z" />
+    <!-- l -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M 47,10 L 49.8,10 L 49.8,24 L 47,24 Z" />
+    <!-- i -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M 53,10 L 55.8,10 L 55.8,12 L 53,12 Z M 53,14 L 55.8,14 L 55.8,24 L 53,24 Z" />
+    <!-- n -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M 59,14 L 61.8,14 L 61.8,16 C 62.4,14.6 63.8,13.8 65.5,13.8 C 67.8,13.8 69,15.2 69,17.8 L 69,24 L 66.2,24 L 66.2,18.4 C 66.2,17.1 65.5,16.3 64.3,16.3 C 63,16.3 61.8,17.3 61.8,18.8 L 61.8,24 L 59,24 Z" />
+    <!-- t -->
+    <path
+        android:fillColor="#0F172A"
+        android:pathData="M 73,11 L 73,14 L 75.5,14 L 75.5,16.3 L 73,16.3 L 73,21.5 C 73,22.2 73.3,22.5 74,22.5 L 75.5,22.5 L 75.5,24 C 74.2,24 72,24 71.2,23.2 C 70.4,22.4 70.2,21.2 70.2,20 L 70.2,16.3 L 68.5,16.3 L 68.5,14 L 70.2,14 L 70.2,11 Z" />
+    <!-- O -->
+    <path
+        android:fillColor="#1A5E66"
+        android:pathData="M 83.5,10 C 87.5,10 90.5,13.2 90.5,17 C 90.5,20.8 87.5,24 83.5,24 C 79.5,24 76.5,20.8 76.5,17 C 76.5,13.2 79.5,10 83.5,10 Z M 83.5,12.8 C 81.3,12.8 79.5,14.6 79.5,17 C 79.5,19.4 81.3,21.2 83.5,21.2 C 85.7,21.2 87.5,19.4 87.5,17 C 87.5,14.6 85.7,12.8 83.5,12.8 Z" />
+    <!-- m -->
+    <path
+        android:fillColor="#1A5E66"
+        android:pathData="M 93,14 L 95.7,14 L 95.7,16 C 96.3,14.6 97.5,13.8 99,13.8 C 100.5,13.8 101.6,14.6 102.2,16 C 103,14.6 104.2,13.8 105.8,13.8 C 108.2,13.8 109.5,15.3 109.5,17.8 L 109.5,24 L 106.7,24 L 106.7,18.4 C 106.7,17.1 106.1,16.3 105,16.3 C 103.8,16.3 102.8,17.3 102.8,18.8 L 102.8,24 L 100,24 L 100,18.4 C 100,17.1 99.4,16.3 98.3,16.3 C 97.1,16.3 96.1,17.3 96.1,18.8 L 96.1,24 L 93,24 Z" />
+</vector>

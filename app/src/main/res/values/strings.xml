@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">Capture Attendance</string>
+    <string name="title_capture_attendance">Capture Attendance</string>
+    <string name="btn_in">IN</string>
+    <string name="btn_out">OUT</string>
+    <string name="label_last_activity_prefix">Last activity: </string>
+    <string name="label_notes">Notes</string>
+    <string name="placeholder_notes">Enter notes...</string>
+    <string name="default_status">No face detected</string>
+    <string name="powered_by">Powered by</string>
+    <string name="btn_capture">Capture</string>
+    <string name="btn_scanning">Scanning...</string>
+    <string name="btn_submitting">Submitting...</string>
+    <string name="btn_retake">Retake</string>
+    <string name="multiple_locations_hint">Multiple nearby locations found. Please select one location.</string>
+    <string name="select_nearby_location">Select nearby location</string>
+</resources>

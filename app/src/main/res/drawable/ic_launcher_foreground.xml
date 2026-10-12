@@ -1,0 +1,57 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Corner brackets of face scan -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M 32,42 L 32,32 L 42,32" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M 76,42 L 76,32 L 66,32" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M 32,66 L 32,76 L 42,76" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M 76,66 L 76,76 L 66,76" />
+
+    <!-- Head circle -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 54,39 A 9,9 0 1,0 54,57 A 9,9 0 1,0 54,39 Z" />
+
+    <!-- Shoulders / badge base -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 40,71 C 40,63.5 46,61 54,61 C 62,61 68,63.5 68,71 Z" />
+
+    <!-- Checkmark accent in cyan/teal badge -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M 68,54 A 8,8 0 1,0 68,70 A 8,8 0 1,0 68,54 Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M 64.5,62 L 67,64.5 L 72,59" />
+</vector>

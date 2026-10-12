@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Face API Bridge</title>
+    <script src="face-api.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; background: #000; }
+    </style>
+</head>
+<body>
+    <script>
+        let isModelReady = false;
+        let isDetecting = false;
+
+        async function initModels() {
+            try {
+                if (typeof faceapi === 'undefined') {
+                    throw new Error("face-api library not loaded");
+                }
+
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
+                    faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
+                    faceapi.nets.faceRecognitionNet.loadFromUri('/models')
+                ]);
+
+                isModelReady = true;
+                if (window.AndroidBridge && window.AndroidBridge.onModelsLoaded) {
+                    window.AndroidBridge.onModelsLoaded(true, "Face detection ready.");
+                }
+            } catch (err) {
+                isModelReady = false;
+                console.error("Model load error:", err);
+                if (window.AndroidBridge && window.AndroidBridge.onModelsLoaded) {
+                    window.AndroidBridge.onModelsLoaded(false, err.message || ("" + err));
+                }
+            }
+        }
+
+        function detectFace(base64Jpeg) {
+            if (!isModelReady) {
+                if (window.AndroidBridge && window.AndroidBridge.onDetectionResult) {
+                    window.AndroidBridge.onDetectionResult(0, 0, "[]");
+                }
+                return;
+            }
+            if (isDetecting) {
+                return;
+            }
+            isDetecting = true;
+
+            const img = new Image();
+            img.onload = async function() {
+                try {
+                    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 });
+                    const results = await faceapi
+                        .detectAllFaces(img, options)
+                        .withFaceLandmarks()
+                        .withFaceDescriptors();
+
+                    if (!results || results.length === 0) {
+                        if (window.AndroidBridge && window.AndroidBridge.onDetectionResult) {
+                            window.AndroidBridge.onDetectionResult(0, 0, "[]");
+                        }
+                    } else if (results.length > 1) {
+                        if (window.AndroidBridge && window.AndroidBridge.onDetectionResult) {
+                            window.AndroidBridge.onDetectionResult(results.length, 0, "[]");
+                        }
+                    } else {
+                        const r = results[0];
+                        const score = r.detection ? r.detection.score : 0.85;
+                        const desc = Array.from(r.descriptor);
+                        if (window.AndroidBridge && window.AndroidBridge.onDetectionResult) {
+                            window.AndroidBridge.onDetectionResult(1, score, JSON.stringify(desc));
+                        }
+                    }
+                } catch (e) {
+                    console.error("detect error", e);
+                    if (window.AndroidBridge && window.AndroidBridge.onDetectionResult) {
+                        window.AndroidBridge.onDetectionResult(0, 0, "[]");
+                    }
+                } finally {
+                    isDetecting = false;
+                }
+            };
+            img.onerror = function(e) {
+                isDetecting = false;
+                if (window.AndroidBridge && window.AndroidBridge.onDetectionResult) {
+                    window.AndroidBridge.onDetectionResult(0, 0, "[]");
+                }
+            };
+            img.src = "data:image/jpeg;base64," + base64Jpeg;
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initModels();
+        });
+    </script>
+</body>
+</html>
