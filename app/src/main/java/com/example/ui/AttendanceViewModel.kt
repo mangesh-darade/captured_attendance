@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import android.graphics.Bitmap
 import org.json.JSONObject
 import java.util.Collections
 import java.util.Locale
@@ -47,7 +48,9 @@ data class AttendanceUiState(
     val currentLng: Double? = null,
     val currentLandmark: String = "",
     val isPosting: Boolean = false,
-    val showSettingsDialog: Boolean = false
+    val showSettingsDialog: Boolean = false,
+    val capturedBitmap: Bitmap? = null,
+    val isAutoSubmitEnabled: Boolean = true
 )
 
 class AttendanceViewModel(application: Application) : AndroidViewModel(application) {
@@ -69,6 +72,12 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     private var deriveDebounceJob: Job? = null
     private var toastDismissJob: Job? = null
     private var scanningTimeoutJob: Job? = null
+    private var resetCapturedJob: Job? = null
+    private var latestBitmap: Bitmap? = null
+
+    fun onLatestFrame(bitmap: Bitmap) {
+        latestBitmap = bitmap
+    }
 
     init {
         loadPreferencesAndBootstrap()
@@ -78,8 +87,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             val base = preferencesRepository.tenantBaseUrlFlow.first()
             val key = preferencesRepository.tenantApiKeyFlow.first()
+            val autoSubmit = preferencesRepository.autoSubmitFlow.first()
             networkClientManager.currentApiKey = key
-            _uiState.update { it.copy(baseUrl = base, apiKey = key) }
+            _uiState.update { it.copy(baseUrl = base, apiKey = key, isAutoSubmitEnabled = autoSubmit) }
 
             // Restore cached last activity if cached date == today
             val cached = preferencesRepository.cachedAttendanceFlow.first()
@@ -113,16 +123,17 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.update { it.copy(showSettingsDialog = false) }
     }
 
-    fun updateSettings(newUrl: String, newApiKey: String) {
+    fun updateSettings(newUrl: String, newApiKey: String, autoSubmit: Boolean = true) {
         viewModelScope.launch {
             val sanitized = networkClientManager.sanitizeBaseUrl(newUrl)
             val trimmedKey = newApiKey.trim()
-            preferencesRepository.setTenantSettings(sanitized, trimmedKey)
+            preferencesRepository.setTenantSettings(sanitized, trimmedKey, autoSubmit)
             networkClientManager.currentApiKey = trimmedKey
             _uiState.update {
                 it.copy(
                     baseUrl = sanitized,
                     apiKey = trimmedKey,
+                    isAutoSubmitEnabled = autoSubmit,
                     showSettingsDialog = false
                 )
             }
@@ -132,7 +143,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun updateBaseUrl(newUrl: String) {
-        updateSettings(newUrl, _uiState.value.apiKey)
+        updateSettings(newUrl, _uiState.value.apiKey, _uiState.value.isAutoSubmitEnabled)
     }
 
     fun testConnection(url: String, apiKey: String, onResult: (Boolean, String) -> Unit) {
@@ -258,6 +269,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
      * Detection loop 900 ms result handling
      */
     fun onDetectionTick(result: FaceDetectionResult) {
+        if (_uiState.value.capturedBitmap != null) return
         val now = System.currentTimeMillis()
 
         // 1. Update status text and buffer
@@ -329,7 +341,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         val locationReady = !state.showLocationPicker || state.selectedLocation != null
         val bufferReady = descriptorBuffer.size >= 3
 
-        if (!state.isPosting && cooldownPassed && hasCoords && locationReady && bufferReady && consecutiveGoodTicks >= 4) {
+        if (state.isAutoSubmitEnabled && !state.isPosting && state.capturedBitmap == null && cooldownPassed && hasCoords && locationReady && bufferReady && consecutiveGoodTicks >= 4) {
             submitAttendance(isAuto = true)
         }
     }
@@ -453,13 +465,15 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         val state = _uiState.value
         if (state.isPosting) return
 
-        if (!state.isCameraActive || state.buttonState == AttendanceButtonState.RETAKE) {
+        if (state.capturedBitmap != null || !state.isCameraActive || state.buttonState == AttendanceButtonState.RETAKE) {
+            resetCapturedJob?.cancel()
             _uiState.update {
                 it.copy(
                     isCameraActive = true,
                     isCameraFailed = false,
+                    capturedBitmap = null,
                     buttonState = AttendanceButtonState.CAPTURE,
-                    statusText = "Camera active. Loading face model..."
+                    statusText = "Face detection ready."
                 )
             }
             return
@@ -511,7 +525,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.update {
             it.copy(
                 isPosting = true,
-                buttonState = AttendanceButtonState.SUBMITTING
+                buttonState = AttendanceButtonState.SUBMITTING,
+                capturedBitmap = latestBitmap ?: it.capturedBitmap
             )
         }
 
@@ -604,12 +619,25 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.update {
             it.copy(
                 isPosting = false,
-                buttonState = AttendanceButtonState.CAPTURE,
+                buttonState = AttendanceButtonState.RETAKE,
                 notes = "", // Clear notes
                 activeToggle = nextToggle,
                 lastActivityText = activity.text,
                 statusText = successMsg
             )
+        }
+
+        // Keep captured image visible for 4.5 seconds after submit, then auto-reset for next person
+        resetCapturedJob?.cancel()
+        resetCapturedJob = viewModelScope.launch {
+            delay(4500L)
+            _uiState.update {
+                it.copy(
+                    capturedBitmap = null,
+                    buttonState = AttendanceButtonState.CAPTURE,
+                    statusText = "Face detection ready."
+                )
+            }
         }
 
         // Save cache
@@ -648,9 +676,20 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.update {
             it.copy(
                 isPosting = false,
-                buttonState = AttendanceButtonState.CAPTURE,
+                buttonState = AttendanceButtonState.RETAKE,
                 statusText = rawMessage
             )
+        }
+
+        resetCapturedJob?.cancel()
+        resetCapturedJob = viewModelScope.launch {
+            delay(3500L)
+            _uiState.update {
+                it.copy(
+                    capturedBitmap = null,
+                    buttonState = AttendanceButtonState.CAPTURE
+                )
+            }
         }
     }
 

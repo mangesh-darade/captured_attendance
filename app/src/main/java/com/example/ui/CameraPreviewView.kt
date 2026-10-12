@@ -41,7 +41,7 @@ fun CameraPreviewView(
     isCameraActive: Boolean,
     onCameraStarted: () -> Unit,
     onCameraFailed: (String) -> Unit,
-    onFrameCaptured: (String) -> Unit
+    onFrameCaptured: (String, Bitmap) -> Unit
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -112,7 +112,7 @@ fun CameraPreviewView(
                                         scaled.compress(Bitmap.CompressFormat.JPEG, 65, byteStream)
                                         val base64 = Base64.encodeToString(byteStream.toByteArray(), Base64.NO_WRAP)
 
-                                        onFrameCaptured(base64)
+                                        onFrameCaptured(base64, rotated)
                                     } catch (e: Exception) {
                                         e.printStackTrace()
                                     }

@@ -3,6 +3,7 @@ package com.example.data.datastore
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
@@ -35,6 +36,7 @@ class AttendancePreferencesRepository(private val context: Context) {
         val KEY_CACHED_NEXT_ACTION = stringPreferencesKey("attendance_cached_next_action")
         val KEY_TENANT_BASE_URL = stringPreferencesKey("tenant_base_url")
         val KEY_API_KEY = stringPreferencesKey("tenant_api_key")
+        val KEY_AUTO_SUBMIT = booleanPreferencesKey("attendance_auto_submit_enabled")
 
         const val DEFAULT_BASE_URL = "https://attendance.elintom.com/"
     }
@@ -54,6 +56,10 @@ class AttendancePreferencesRepository(private val context: Context) {
 
     val tenantApiKeyFlow: Flow<String> = context.dataStore.data.map { prefs ->
         prefs[KEY_API_KEY] ?: ""
+    }
+
+    val autoSubmitFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_AUTO_SUBMIT] ?: true
     }
 
     suspend fun saveCachedAttendance(
@@ -76,10 +82,17 @@ class AttendancePreferencesRepository(private val context: Context) {
         }
     }
 
-    suspend fun setTenantSettings(url: String, apiKey: String) {
+    suspend fun setTenantSettings(url: String, apiKey: String, autoSubmit: Boolean = true) {
         context.dataStore.edit { prefs ->
             prefs[KEY_TENANT_BASE_URL] = url
             prefs[KEY_API_KEY] = apiKey
+            prefs[KEY_AUTO_SUBMIT] = autoSubmit
+        }
+    }
+
+    suspend fun setAutoSubmit(autoSubmit: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_AUTO_SUBMIT] = autoSubmit
         }
     }
 }

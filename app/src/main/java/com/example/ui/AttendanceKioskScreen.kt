@@ -13,7 +13,11 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,12 +33,28 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Login
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.CenterFocusWeak
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.filled.PhotoCamera
+import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -47,6 +67,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.text.input.KeyboardType
@@ -69,6 +91,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -82,6 +105,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import com.example.R
 import com.example.data.model.AttendanceButtonState
 import com.example.data.model.ToastType
@@ -92,6 +118,8 @@ import com.example.ui.theme.BorderDefault
 import com.example.ui.theme.BorderToggle
 import com.example.ui.theme.BrandActiveTint
 import com.example.ui.theme.BrandPrimary
+import com.example.ui.theme.CardBackground
+import com.example.ui.theme.CardBorder
 import com.example.ui.theme.HeaderBackground
 import com.example.ui.theme.InterFontFamily
 import com.example.ui.theme.PageBackground
@@ -224,93 +252,230 @@ fun AttendanceKioskScreen(
                     .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(scrollState)
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // 2) Hidden-by-default dropdown "Select nearby location"
-                if (uiState.showLocationPicker) {
-                    LocationPickerSection(
-                        options = uiState.locationOptions,
-                        selectedLocation = uiState.selectedLocation,
-                        onLocationSelected = { viewModel.onLocationSelected(it) }
-                    )
-                }
-
-                // 3) Two equal toggle buttons IN / OUT (38dp, interactive toggles)
-                ToggleIndicators(
-                    activeToggle = uiState.activeToggle,
-                    onToggleSelected = { viewModel.onToggleClicked(it) }
-                )
-
-                // 4) "Last activity: --" 13sp #475569
-                Text(
-                    text = "${stringResource(R.string.label_last_activity_prefix)}${uiState.lastActivityText}",
-                    style = TextStyle(
-                        fontFamily = InterFontFamily,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = TextMuted
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("last_activity_text")
-                )
-
-                // 5) "Notes" label 12sp 600 #475569 + multiline field min 78dp
-                NotesSection(
-                    notes = uiState.notes,
-                    onNotesChanged = { viewModel.onNotesChanged(it) }
-                )
-
-                // 6) Front camera preview 16:9, radius 12, border #DCE5F1, bg #0B1220
-                CameraPreviewView(
-                    isCameraActive = uiState.isCameraActive,
-                    onCameraStarted = { viewModel.onCameraStarted() },
-                    onCameraFailed = { viewModel.onCameraFailed(it) },
-                    onFrameCaptured = { base64 ->
-                        webViewManager.detectFrame(base64)
-                    }
-                )
-
-                // 7) Centered status text 13sp #6B7280
-                Text(
-                    text = uiState.statusText,
-                    style = TextStyle(
-                        fontFamily = InterFontFamily,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = TextStatus,
-                        textAlign = TextAlign.Center
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("status_text")
-                )
-
-                // 8) "Powered by" + small ElintOm icon, 12sp, centered
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                // Card 1: Location & IN / OUT
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, CardBorder),
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(
-                        text = stringResource(R.string.powered_by),
-                        style = TextStyle(
-                            fontFamily = InterFontFamily,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Normal,
-                            color = TextStatus
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        LocationPickerSection(
+                            options = uiState.locationOptions,
+                            selectedLocation = uiState.selectedLocation,
+                            onLocationSelected = { viewModel.onLocationSelected(it) }
                         )
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Image(
-                        painter = painterResource(R.drawable.ic_elintom_small),
-                        contentDescription = "ElintOm",
-                        modifier = Modifier.size(14.dp)
+
+                        ToggleIndicators(
+                            activeToggle = uiState.activeToggle,
+                            onToggleSelected = { viewModel.onToggleClicked(it) }
+                        )
+                    }
+                }
+
+                // Card 2: Last activity
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, CardBorder),
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 14.dp, vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE0F2FE)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = Color(0xFF006D77),
+                                modifier = Modifier.size(17.dp)
+                            )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = stringResource(R.string.label_last_activity_prefix),
+                                style = TextStyle(
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF64748B),
+                                    fontWeight = FontWeight.Normal
+                                )
+                            )
+                            Text(
+                                text = uiState.lastActivityText.ifBlank { "--" },
+                                style = TextStyle(
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 13.sp,
+                                    color = Color(0xFF0F172A),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
+                    }
+                }
+
+                // Card 3: Notes
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, CardBorder),
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    NotesSection(
+                        notes = uiState.notes,
+                        onNotesChanged = { viewModel.onNotesChanged(it) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp)
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                // Card 4: Camera Preview & Status Card
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, CardBorder),
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(14.dp))
+                        ) {
+                            CameraPreviewView(
+                                isCameraActive = uiState.isCameraActive,
+                                onCameraStarted = { viewModel.onCameraStarted() },
+                                onCameraFailed = { viewModel.onCameraFailed(it) },
+                                onFrameCaptured = { base64, bitmap ->
+                                    viewModel.onLatestFrame(bitmap)
+                                    webViewManager.detectFrame(base64)
+                                }
+                            )
+
+                            val captured = uiState.capturedBitmap
+                            if (captured != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .aspectRatio(16f / 9f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color.Black)
+                                        .border(1.dp, CardBorder, RoundedCornerShape(12.dp))
+                                 ) {
+                                    Image(
+                                        bitmap = captured.asImageBitmap(),
+                                        contentDescription = "Captured Face",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color(0xCC006D77),
+                                        modifier = Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .padding(10.dp)
+                                    ) {
+                                        Text(
+                                            text = "Captured",
+                                            color = Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Status text with frame icon
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CenterFocusWeak,
+                                contentDescription = null,
+                                tint = Color(0xFF006D77),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = uiState.statusText,
+                                style = TextStyle(
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF334155),
+                                    textAlign = TextAlign.Center
+                                ),
+                                modifier = Modifier.testTag("status_text")
+                            )
+                        }
+
+                        // Powered by row
+                        val uriHandler = LocalUriHandler.current
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    try {
+                                        uriHandler.openUri("https://elintom.io")
+                                    } catch (_: Exception) {
+                                    }
+                                },
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.powered_by),
+                                style = TextStyle(
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    color = Color(0xFF64748B)
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Image(
+                                painter = painterResource(R.drawable.ic_elintom_favicon),
+                                contentDescription = "ElintOm",
+                                modifier = Modifier.size(16.dp),
+                                contentScale = ContentScale.Fit
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
             }
 
             // 9) Sticky bottom bar (white, top border #DBE5F1, upward shadow)
@@ -344,8 +509,9 @@ fun AttendanceKioskScreen(
             SettingsDialog(
                 currentBaseUrl = uiState.baseUrl,
                 currentApiKey = uiState.apiKey,
+                currentAutoSubmit = uiState.isAutoSubmitEnabled,
                 onDismiss = { viewModel.dismissSettingsDialog() },
-                onSave = { url, key -> viewModel.updateSettings(url, key) },
+                onSave = { url, key, autoSubmit -> viewModel.updateSettings(url, key, autoSubmit) },
                 onTestConnection = { url, key, cb -> viewModel.testConnection(url, key, cb) }
             )
         }
@@ -358,62 +524,84 @@ private fun HeaderBar(
     tenantSiteName: String?,
     onLogoLongClick: () -> Unit
 ) {
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(HeaderBackground)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Left: ElintOm logo (34dp high) with long-click to open tenant config
-        Box(
-            modifier = Modifier
-                .height(34.dp)
-                .pointerInput(Unit) {
-                    detectTapGestures(
-                        onLongPress = { onLogoLongClick() }
+            .height(68.dp)
+            .background(
+                Brush.horizontalGradient(
+                    colors = listOf(
+                        Color(0xFFE2F6F8),
+                        Color(0xFFC7EFF4)
                     )
-                }
-                .testTag("header_logo")
+                )
+            )
+    ) {
+        // Decorative soft teal curves in top-right
+        Canvas(
+            modifier = Modifier.fillMaxSize()
         ) {
-            Image(
-                painter = painterResource(R.drawable.ic_elintom_logo),
-                contentDescription = "ElintOm Logo",
-                modifier = Modifier.height(34.dp),
-                contentScale = ContentScale.Fit
+            val w = size.width
+            drawCircle(
+                color = Color(0x304DD0E1),
+                radius = 160.dp.toPx(),
+                center = Offset(w + 20.dp.toPx(), -20.dp.toPx())
+            )
+            drawCircle(
+                color = Color(0x2526A69A),
+                radius = 110.dp.toPx(),
+                center = Offset(w + 10.dp.toPx(), -10.dp.toPx())
+            )
+            drawCircle(
+                color = Color(0x2000838F),
+                radius = 65.dp.toPx(),
+                center = Offset(w, 0f)
             )
         }
 
-        // Right: Tenant logo (from server) or tenant site name (12sp, 600, #111827, ellipsis)
-        Box(
+        Row(
             modifier = Modifier
-                .heightIn(max = 34.dp)
-                .widthIn(max = 180.dp),
-            contentAlignment = Alignment.CenterEnd
+                .fillMaxSize()
+                .padding(horizontal = 14.dp),
+            horizontalArrangement = Arrangement.Start,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (!tenantLogoUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(tenantLogoUrl)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = "Tenant Logo",
-                    modifier = Modifier.height(34.dp),
+            Box(
+                modifier = Modifier
+                    .height(42.dp)
+                    .pointerInput(Unit) {
+                        coroutineScope {
+                            awaitEachGesture {
+                                awaitFirstDown(requireUnconsumed = false)
+                                val job = launch {
+                                    delay(3000L)
+                                    onLogoLongClick()
+                                }
+                                waitForUpOrCancellation()
+                                job.cancel()
+                            }
+                        }
+                    }
+                    .testTag("header_logo")
+            ) {
+                val fallbackPainter = painterResource(R.drawable.ic_tenant_full_logo)
+                Image(
+                    painter = fallbackPainter,
+                    contentDescription = "ElintOM Logo",
+                    modifier = Modifier.height(42.dp),
                     contentScale = ContentScale.Fit
                 )
-            } else if (!tenantSiteName.isNullOrBlank()) {
-                Text(
-                    text = tenantSiteName,
-                    style = TextStyle(
-                        fontFamily = InterFontFamily,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (!tenantLogoUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(tenantLogoUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = tenantSiteName ?: "Logo",
+                        modifier = Modifier.height(42.dp),
+                        contentScale = ContentScale.Fit
+                    )
+                }
             }
         }
     }
@@ -431,12 +619,12 @@ private fun LocationPickerSection(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(42.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .border(1.dp, BorderDefault, RoundedCornerShape(10.dp))
+                .height(46.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(12.dp))
                 .background(Color.White)
                 .clickable { expanded = true }
-                .padding(horizontal = 12.dp),
+                .padding(horizontal = 10.dp),
             contentAlignment = Alignment.CenterStart
         ) {
             Row(
@@ -444,21 +632,42 @@ private fun LocationPickerSection(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = selectedLocation?.displayLabel() ?: stringResource(R.string.select_nearby_location),
-                    style = TextStyle(
-                        fontFamily = InterFontFamily,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Normal,
-                        color = if (selectedLocation != null) TextPrimary else TextMuted
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(30.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE0F2FE)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Place,
+                            contentDescription = null,
+                            tint = Color(0xFF006D77),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Text(
+                        text = selectedLocation?.displayLabel() ?: stringResource(R.string.select_nearby_location),
+                        style = TextStyle(
+                            fontFamily = InterFontFamily,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (selectedLocation != null) Color(0xFF0F172A) else Color(0xFF64748B)
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 Icon(
                     imageVector = Icons.Default.ArrowDropDown,
                     contentDescription = "Expand Location Options",
-                    tint = TextMuted
+                    tint = Color(0xFF475569),
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
@@ -477,7 +686,7 @@ private fun LocationPickerSection(
                                 style = TextStyle(
                                     fontFamily = InterFontFamily,
                                     fontSize = 13.sp,
-                                    color = TextPrimary
+                                    color = Color(0xFF0F172A)
                                 )
                             )
                         },
@@ -490,18 +699,29 @@ private fun LocationPickerSection(
             }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Hint: 12sp #B45309 "Multiple nearby locations found. Please select one location."
-        Text(
-            text = stringResource(R.string.multiple_locations_hint),
-            style = TextStyle(
-                fontFamily = InterFontFamily,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Normal,
-                color = TextWarning
+        // Warning hint with amber warning icon
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Warning,
+                contentDescription = null,
+                tint = Color(0xFFF59E0B),
+                modifier = Modifier.size(15.dp)
             )
-        )
+            Text(
+                text = stringResource(R.string.multiple_locations_hint),
+                style = TextStyle(
+                    fontFamily = InterFontFamily,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color(0xFFD97706)
+                )
+            )
+        }
     }
 }
 
@@ -517,58 +737,80 @@ private fun ToggleIndicators(
         val isInActive = activeToggle == "IN"
         val isOutActive = activeToggle == "OUT"
 
-        // IN toggle button
+        // IN toggle button (48dp height, 12dp radius)
         Box(
             modifier = Modifier
                 .weight(1f)
-                .height(38.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (isInActive) BrandActiveTint else Color.Transparent)
+                .height(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (isInActive) Color(0xFF006D77) else Color.White)
                 .border(
-                    width = 1.dp,
-                    color = if (isInActive) BrandPrimary else BorderToggle,
-                    shape = RoundedCornerShape(8.dp)
+                    width = if (isInActive) 0.dp else 1.5.dp,
+                    color = if (isInActive) Color.Transparent else Color(0xFFCBD5E1),
+                    shape = RoundedCornerShape(12.dp)
                 )
                 .clickable { onToggleSelected("IN") }
                 .testTag("toggle_in"),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = stringResource(R.string.btn_in),
-                style = TextStyle(
-                    fontFamily = InterFontFamily,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isInActive) BrandPrimary else TextSlate
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Login,
+                    contentDescription = null,
+                    tint = if (isInActive) Color.White else Color(0xFF334155),
+                    modifier = Modifier.size(18.dp)
                 )
-            )
+                Text(
+                    text = stringResource(R.string.btn_in),
+                    style = TextStyle(
+                        fontFamily = InterFontFamily,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isInActive) Color.White else Color(0xFF1E293B)
+                    )
+                )
+            }
         }
 
-        // OUT toggle button
+        // OUT toggle button (48dp height, 12dp radius)
         Box(
             modifier = Modifier
                 .weight(1f)
-                .height(38.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(if (isOutActive) BrandActiveTint else Color.Transparent)
+                .height(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (isOutActive) Color(0xFF006D77) else Color.White)
                 .border(
-                    width = 1.dp,
-                    color = if (isOutActive) BrandPrimary else BorderToggle,
-                    shape = RoundedCornerShape(8.dp)
+                    width = if (isOutActive) 0.dp else 1.5.dp,
+                    color = if (isOutActive) Color.Transparent else Color(0xFFCBD5E1),
+                    shape = RoundedCornerShape(12.dp)
                 )
                 .clickable { onToggleSelected("OUT") }
                 .testTag("toggle_out"),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = stringResource(R.string.btn_out),
-                style = TextStyle(
-                    fontFamily = InterFontFamily,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isOutActive) BrandPrimary else TextSlate
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = null,
+                    tint = if (isOutActive) Color.White else Color(0xFF334155),
+                    modifier = Modifier.size(18.dp)
                 )
-            )
+                Text(
+                    text = stringResource(R.string.btn_out),
+                    style = TextStyle(
+                        fontFamily = InterFontFamily,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isOutActive) Color.White else Color(0xFF1E293B)
+                    )
+                )
+            }
         }
     }
 }
@@ -576,27 +818,39 @@ private fun ToggleIndicators(
 @Composable
 private fun NotesSection(
     notes: String,
-    onNotesChanged: (String) -> Unit
+    onNotesChanged: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.label_notes),
-            style = TextStyle(
-                fontFamily = InterFontFamily,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextMuted
+    Column(modifier = modifier) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Description,
+                contentDescription = null,
+                tint = Color(0xFF64748B),
+                modifier = Modifier.size(17.dp)
             )
-        )
-        Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(R.string.label_notes),
+                style = TextStyle(
+                    fontFamily = InterFontFamily,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF334155)
+                )
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .heightIn(min = 78.dp)
+                .height(80.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .border(1.dp, BorderDefault, RoundedCornerShape(10.dp))
-                .background(Color.White)
-                .padding(10.dp)
+                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp))
+                .background(Color(0xFFFAFAFA))
+                .padding(horizontal = 12.dp, vertical = 10.dp)
                 .testTag("notes_input")
         ) {
             if (notes.isEmpty()) {
@@ -615,9 +869,9 @@ private fun NotesSection(
                 textStyle = TextStyle(
                     fontFamily = InterFontFamily,
                     fontSize = 13.sp,
-                    color = TextPrimary
+                    color = Color(0xFF0F172A)
                 ),
-                cursorBrush = SolidColor(BrandPrimary),
+                cursorBrush = SolidColor(Color(0xFF006D77)),
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -633,35 +887,42 @@ private fun StickyBottomBar(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(elevation = 6.dp),
+            .shadow(elevation = 8.dp),
         color = Color.White
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(width = 1.dp, color = BorderBottomBar)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
             Button(
                 onClick = onCaptureClick,
                 enabled = !isPosting,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp)
+                    .height(52.dp)
                     .testTag("capture_button"),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = BrandPrimary,
+                    containerColor = Color(0xFF006D77),
                     contentColor = Color.White,
-                    disabledContainerColor = BrandPrimary.copy(alpha = 0.6f),
+                    disabledContainerColor = Color(0xFF006D77).copy(alpha = 0.6f),
                     disabledContentColor = Color.White.copy(alpha = 0.8f)
-                )
+                ),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
             ) {
+                Icon(
+                    imageVector = if (buttonState == AttendanceButtonState.RETAKE) Icons.Default.Refresh else Icons.Default.PhotoCamera,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = buttonState.label,
                     style = TextStyle(
                         fontFamily = InterFontFamily,
-                        fontSize = 15.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
                 )
@@ -724,8 +985,9 @@ private fun ToastBanner(
 private fun SettingsDialog(
     currentBaseUrl: String,
     currentApiKey: String,
+    currentAutoSubmit: Boolean,
     onDismiss: () -> Unit,
-    onSave: (String, String) -> Unit,
+    onSave: (String, String, Boolean) -> Unit,
     onTestConnection: (String, String, (Boolean, String) -> Unit) -> Unit
 ) {
     var isAuthenticated by remember { mutableStateOf(false) }
@@ -738,6 +1000,7 @@ private fun SettingsDialog(
     // Config state
     var urlText by remember { mutableStateOf(currentBaseUrl) }
     var apiKeyText by remember { mutableStateOf(currentApiKey) }
+    var isAutoSubmitEnabled by remember { mutableStateOf(currentAutoSubmit) }
     var isTesting by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
 
@@ -888,6 +1151,47 @@ private fun SettingsDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
 
+                    // Auto-Submit vs Manual Trigger Toggle
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Auto-Submit (Kiosk Mode)",
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF1E293B)
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = if (isAutoSubmitEnabled) "Auto-trigger on face detection" else "Manual trigger (press Capture button)",
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 11.sp,
+                                    color = if (isAutoSubmitEnabled) Color(0xFF0F766E) else Color(0xFF64748B)
+                                )
+                            }
+                            Switch(
+                                checked = isAutoSubmitEnabled,
+                                onCheckedChange = { isAutoSubmitEnabled = it },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = Color(0xFF006D77)
+                                )
+                            )
+                        }
+                    }
+
                     // Test Status Button
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -946,7 +1250,7 @@ private fun SettingsDialog(
             },
             confirmButton = {
                 Button(
-                    onClick = { onSave(urlText, apiKeyText) },
+                    onClick = { onSave(urlText, apiKeyText, isAutoSubmitEnabled) },
                     colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
                 ) {
                     Text("Save", fontFamily = InterFontFamily, color = Color.White)

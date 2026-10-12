@@ -1,6 +1,6 @@
 <resources>
-    <string name="app_name">Capture Attendance</string>
-    <string name="title_capture_attendance">Capture Attendance</string>
+    <string name="app_name">ElintOM Capture</string>
+    <string name="title_capture_attendance">ElintOM Capture</string>
     <string name="btn_in">IN</string>
     <string name="btn_out">OUT</string>
     <string name="label_last_activity_prefix">Last activity: </string>
