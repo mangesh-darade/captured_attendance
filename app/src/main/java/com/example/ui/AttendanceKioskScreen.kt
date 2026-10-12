@@ -269,11 +269,13 @@ fun AttendanceKioskScreen(
                             .padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        LocationPickerSection(
-                            options = uiState.locationOptions,
-                            selectedLocation = uiState.selectedLocation,
-                            onLocationSelected = { viewModel.onLocationSelected(it) }
-                        )
+                        if (uiState.locationOptions.size > 1) {
+                            LocationPickerSection(
+                                options = uiState.locationOptions,
+                                selectedLocation = uiState.selectedLocation,
+                                onLocationSelected = { viewModel.onLocationSelected(it) }
+                            )
+                        }
 
                         ToggleIndicators(
                             activeToggle = uiState.activeToggle,
@@ -613,6 +615,8 @@ private fun LocationPickerSection(
     selectedLocation: com.example.data.model.LocationOption?,
     onLocationSelected: (com.example.data.model.LocationOption) -> Unit
 ) {
+    if (options.size <= 1) return
+
     var expanded by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxWidth()) {
