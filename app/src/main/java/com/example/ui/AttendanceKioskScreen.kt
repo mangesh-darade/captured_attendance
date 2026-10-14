@@ -43,7 +43,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.CenterFocusWeak
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.outlined.Description
@@ -139,6 +141,63 @@ import com.example.ui.theme.ToastSuccessBg
 import com.example.ui.theme.ToastSuccessBorder
 import com.example.ui.theme.ToastSuccessText
 
+private data class FaceGuideLook(
+    val ovalColor: Color,
+    val dashed: Boolean,
+    val frameColor: Color,
+    val chipText: String,
+    val caption: String,
+    val captionColor: Color
+)
+
+private fun faceGuideLook(status: String, captured: Boolean): FaceGuideLook {
+    if (captured) {
+        return FaceGuideLook(
+            ovalColor = Color(0xFF4ADE80),
+            dashed = false,
+            frameColor = Color(0xFF4ADE80),
+            chipText = "Captured",
+            caption = status,
+            captionColor = Color(0xFF15803D)
+        )
+    }
+    val text = status.lowercase()
+    return when {
+        text.contains("successfully") -> FaceGuideLook(
+            ovalColor = Color(0xFF4ADE80),
+            dashed = false,
+            frameColor = Color(0xFF4ADE80),
+            chipText = "Face detected",
+            caption = status,
+            captionColor = Color(0xFF15803D)
+        )
+        text.contains("multiple") || text.contains("hold still") -> FaceGuideLook(
+            ovalColor = Color(0xFFFB7185),
+            dashed = false,
+            frameColor = Color(0xFFFB7185),
+            chipText = status,
+            caption = status,
+            captionColor = Color(0xFFE11D48)
+        )
+        text.contains("no face") -> FaceGuideLook(
+            ovalColor = Color.White.copy(alpha = 0.85f),
+            dashed = true,
+            frameColor = Color(0xFFCBD5E1),
+            chipText = "Looking for face...",
+            caption = "No face detected. Tap Retake to try again.",
+            captionColor = Color(0xFFE11D48)
+        )
+        else -> FaceGuideLook(
+            ovalColor = Color.White.copy(alpha = 0.85f),
+            dashed = true,
+            frameColor = Color(0xFFCBD5E1),
+            chipText = "Looking for face...",
+            caption = status,
+            captionColor = Color(0xFF64748B)
+        )
+    }
+}
+
 @Composable
 fun AttendanceKioskScreen(
     viewModel: AttendanceViewModel,
@@ -152,8 +211,7 @@ fun AttendanceKioskScreen(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
-        val locGranted = (permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false) ||
-                (permissions[Manifest.permission.ACCESS_COARSE_LOCATION] ?: false)
+        val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
 
         if (cameraGranted) {
             viewModel.onCameraStarted()
@@ -161,10 +219,14 @@ fun AttendanceKioskScreen(
             viewModel.onCameraFailed("Camera permission denied.")
         }
 
-        if (locGranted) {
+        if (fineGranted) {
             viewModel.triggerLocationAndDerive()
         } else {
-            viewModel.showToast(ToastType.ERROR, "Location permission denied.", 5500L)
+            viewModel.showToast(
+                ToastType.ERROR,
+                "Precise location is required for the correct landmark.",
+                5500L
+            )
         }
     }
 
@@ -175,11 +237,8 @@ fun AttendanceKioskScreen(
         val hasFine = ContextCompat.checkSelfPermission(
             context, Manifest.permission.ACCESS_FINE_LOCATION
         ) == PackageManager.PERMISSION_GRANTED
-        val hasCoarse = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
 
-        if (!hasCam || (!hasFine && !hasCoarse)) {
+        if (!hasCam || !hasFine) {
             permissionLauncher.launch(
                 arrayOf(
                     Manifest.permission.CAMERA,
@@ -269,13 +328,27 @@ fun AttendanceKioskScreen(
                             .padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        if (uiState.locationOptions.size > 1) {
+                        if (uiState.locationOptions.size > 1 || uiState.showLocationPicker) {
                             LocationPickerSection(
                                 options = uiState.locationOptions,
                                 selectedLocation = uiState.selectedLocation,
                                 onLocationSelected = { viewModel.onLocationSelected(it) }
                             )
                         }
+
+                        Text(
+                            text = if (uiState.currentLandmark.isBlank()) {
+                                stringResource(R.string.label_standing_landmark) + ": …"
+                            } else {
+                                stringResource(R.string.label_standing_landmark) + ": " + uiState.currentLandmark
+                            },
+                            style = TextStyle(
+                                fontFamily = InterFontFamily,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF006D77)
+                            )
+                        )
 
                         ToggleIndicators(
                             activeToggle = uiState.activeToggle,
@@ -367,81 +440,89 @@ fun AttendanceKioskScreen(
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        val captured = uiState.capturedBitmap
+                        val faceLook = faceGuideLook(uiState.statusText, captured != null)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
+                                .clip(RoundedCornerShape(20.dp))
+                                .border(2.dp, faceLook.frameColor, RoundedCornerShape(20.dp))
                         ) {
                             CameraPreviewView(
                                 isCameraActive = uiState.isCameraActive,
                                 onCameraStarted = { viewModel.onCameraStarted() },
                                 onCameraFailed = { viewModel.onCameraFailed(it) },
+                                canAcceptFrame = { faceBridge.canAcceptFrame() },
                                 onFrameCaptured = { base64, bitmap ->
                                     viewModel.onLatestFrame(bitmap)
-                                    webViewManager.detectFrame(base64)
+                                    if (faceBridge.canAcceptFrame()) {
+                                        faceBridge.markFrameSent()
+                                        webViewManager.detectFrame(base64)
+                                    }
                                 }
                             )
 
-                            val captured = uiState.capturedBitmap
                             if (captured != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .aspectRatio(16f / 9f)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(Color.Black)
-                                        .border(1.dp, CardBorder, RoundedCornerShape(12.dp))
-                                 ) {
-                                    Image(
-                                        bitmap = captured.asImageBitmap(),
-                                        contentDescription = "Captured Face",
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                    Surface(
-                                        shape = RoundedCornerShape(6.dp),
-                                        color = Color(0xCC006D77),
-                                        modifier = Modifier
-                                            .align(Alignment.BottomEnd)
-                                            .padding(10.dp)
-                                    ) {
-                                        Text(
-                                            text = "Captured",
-                                            color = Color.White,
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                Image(
+                                    bitmap = captured.asImageBitmap(),
+                                    contentDescription = "Captured Face",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.matchParentSize()
+                                )
+                            } else {
+                                Canvas(modifier = Modifier.matchParentSize()) {
+                                    val ovalWidth = size.width * 0.46f
+                                    val ovalHeight = size.height * 0.72f
+                                    drawOval(
+                                        color = faceLook.ovalColor,
+                                        topLeft = Offset(
+                                            (size.width - ovalWidth) / 2f,
+                                            (size.height - ovalHeight) / 2f
+                                        ),
+                                        size = Size(ovalWidth, ovalHeight),
+                                        style = Stroke(
+                                            width = 2.dp.toPx(),
+                                            pathEffect = if (faceLook.dashed) {
+                                                PathEffect.dashPathEffect(floatArrayOf(14f, 10f), 0f)
+                                            } else {
+                                                null
+                                            }
                                         )
-                                    }
+                                    )
                                 }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xCC111827),
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 10.dp)
+                            ) {
+                                Text(
+                                    text = faceLook.chipText,
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    fontFamily = InterFontFamily,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
+                                )
                             }
                         }
 
-                        // Status text with frame icon
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.CenterFocusWeak,
-                                contentDescription = null,
-                                tint = Color(0xFF006D77),
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = uiState.statusText,
-                                style = TextStyle(
-                                    fontFamily = InterFontFamily,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF334155),
-                                    textAlign = TextAlign.Center
-                                ),
-                                modifier = Modifier.testTag("status_text")
-                            )
-                        }
+                        Text(
+                            text = faceLook.caption,
+                            style = TextStyle(
+                                fontFamily = InterFontFamily,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = faceLook.captionColor,
+                                textAlign = TextAlign.Center
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("status_text")
+                        )
 
                         // Powered by row
                         val uriHandler = LocalUriHandler.current
@@ -529,7 +610,7 @@ private fun HeaderBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(68.dp)
+            .height(60.dp)
             .background(
                 Brush.horizontalGradient(
                     colors = listOf(
@@ -538,72 +619,75 @@ private fun HeaderBar(
                     )
                 )
             )
+            .pointerInput(Unit) {
+                coroutineScope {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        val job = launch {
+                            delay(3000L)
+                            onLogoLongClick()
+                        }
+                        waitForUpOrCancellation()
+                        job.cancel()
+                    }
+                }
+            }
+            .testTag("header_logo")
     ) {
-        // Decorative soft teal curves in top-right
+        // Decorative soft teal curves in top-right, kept inside the bar
         Canvas(
             modifier = Modifier.fillMaxSize()
         ) {
             val w = size.width
+            val h = size.height
             drawCircle(
-                color = Color(0x304DD0E1),
-                radius = 160.dp.toPx(),
-                center = Offset(w + 20.dp.toPx(), -20.dp.toPx())
+                color = Color(0x404DD0E1),
+                radius = h * 1.35f,
+                center = Offset(w - 12.dp.toPx(), h * 0.22f)
             )
             drawCircle(
-                color = Color(0x2526A69A),
-                radius = 110.dp.toPx(),
-                center = Offset(w + 10.dp.toPx(), -10.dp.toPx())
+                color = Color(0x3326A69A),
+                radius = h * 0.95f,
+                center = Offset(w - 52.dp.toPx(), h * 0.08f)
             )
             drawCircle(
-                color = Color(0x2000838F),
-                radius = 65.dp.toPx(),
-                center = Offset(w, 0f)
+                color = Color(0x2800838F),
+                radius = h * 0.55f,
+                center = Offset(w - 20.dp.toPx(), h * 0.42f)
             )
         }
 
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 14.dp),
+                .padding(horizontal = 14.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .height(42.dp)
-                    .pointerInput(Unit) {
-                        coroutineScope {
-                            awaitEachGesture {
-                                awaitFirstDown(requireUnconsumed = false)
-                                val job = launch {
-                                    delay(3000L)
-                                    onLogoLongClick()
-                                }
-                                waitForUpOrCancellation()
-                                job.cancel()
-                            }
-                        }
-                    }
-                    .testTag("header_logo")
-            ) {
-                val fallbackPainter = painterResource(R.drawable.ic_tenant_full_logo)
-                Image(
-                    painter = fallbackPainter,
-                    contentDescription = "ElintOM Logo",
-                    modifier = Modifier.height(42.dp),
-                    contentScale = ContentScale.Fit
+            val logoModifier = Modifier
+                .height(40.dp)
+                .widthIn(max = 148.dp)
+            if (!tenantLogoUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(tenantLogoUrl)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = tenantSiteName ?: "Site logo",
+                    modifier = logoModifier,
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.CenterStart,
+                    error = painterResource(R.drawable.ic_tenant_full_logo),
+                    fallback = painterResource(R.drawable.ic_tenant_full_logo)
                 )
-                if (!tenantLogoUrl.isNullOrBlank()) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(tenantLogoUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = tenantSiteName ?: "Logo",
-                        modifier = Modifier.height(42.dp),
-                        contentScale = ContentScale.Fit
-                    )
-                }
+            } else {
+                Image(
+                    painter = painterResource(R.drawable.ic_tenant_full_logo),
+                    contentDescription = tenantSiteName ?: "Site logo",
+                    modifier = logoModifier,
+                    contentScale = ContentScale.Fit,
+                    alignment = Alignment.CenterStart
+                )
             }
         }
     }
@@ -615,7 +699,7 @@ private fun LocationPickerSection(
     selectedLocation: com.example.data.model.LocationOption?,
     onLocationSelected: (com.example.data.model.LocationOption) -> Unit
 ) {
-    if (options.size <= 1) return
+    if (options.isEmpty()) return
 
     var expanded by remember { mutableStateOf(false) }
 
@@ -703,28 +787,30 @@ private fun LocationPickerSection(
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        if (options.size > 1) {
+            Spacer(modifier = Modifier.height(6.dp))
 
-        // Warning hint with amber warning icon
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Default.Warning,
-                contentDescription = null,
-                tint = Color(0xFFF59E0B),
-                modifier = Modifier.size(15.dp)
-            )
-            Text(
-                text = stringResource(R.string.multiple_locations_hint),
-                style = TextStyle(
-                    fontFamily = InterFontFamily,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Normal,
-                    color = Color(0xFFD97706)
+            // Warning hint with amber warning icon
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Warning,
+                    contentDescription = null,
+                    tint = Color(0xFFF59E0B),
+                    modifier = Modifier.size(15.dp)
                 )
-            )
+                Text(
+                    text = stringResource(R.string.multiple_locations_hint),
+                    style = TextStyle(
+                        fontFamily = InterFontFamily,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = Color(0xFFD97706)
+                    )
+                )
+            }
         }
     }
 }

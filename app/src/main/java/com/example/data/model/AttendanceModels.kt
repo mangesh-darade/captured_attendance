@@ -27,6 +27,30 @@ data class LocationOption(
     fun pureName(): String {
         return name.replace(Regex("\\s*\\([^)]*\\)$"), "").trim()
     }
+
+    /** Distance from the device, in meters. "7.6km" and "7631.49" are both accepted. */
+    fun distanceMeters(): Double? {
+        val raw = distance?.toString()?.trim()?.lowercase() ?: return null
+        if (raw.isBlank() || raw == "null") return null
+        val kilometers = raw.endsWith("km")
+        val number = raw.removeSuffix("km").removeSuffix("m").trim().toDoubleOrNull() ?: return null
+        return if (kilometers) number * 1000.0 else number
+    }
+}
+
+/** Office sites farther than this are not where the person is standing. */
+const val NEARBY_LOCATION_METERS = 500.0
+
+fun List<LocationOption>.sortedByDistance(): List<LocationOption> {
+    return sortedBy { it.distanceMeters() ?: Double.MAX_VALUE }
+}
+
+/** Nearest site only when it is actually nearby. A 7 km "Mumbai" hit must not be auto-selected. */
+fun List<LocationOption>.nearestWithin(maxMeters: Double = NEARBY_LOCATION_METERS): LocationOption? {
+    return mapNotNull { option -> option.distanceMeters()?.let { option to it } }
+        .filter { it.second <= maxMeters }
+        .minByOrNull { it.second }
+        ?.first
 }
 
 @JsonClass(generateAdapter = true)
@@ -66,11 +90,25 @@ data class AttendanceInitData(
     val siteName: String? = null,
     @Json(name = "tenant_logo_url")
     val tenantLogoUrl: String? = null,
+    @Json(name = "login_logo")
+    val loginLogo: String? = null,
+    @Json(name = "site_logo")
+    val siteLogo: String? = null,
+    @Json(name = "company_logo")
+    val companyLogo: String? = null,
+    @Json(name = "logo_url")
+    val logoUrl: String? = null,
     @Json(name = "default_attendance_type")
     val defaultAttendanceType: String? = null,
     @Json(name = "server_time")
     val serverTime: String? = null
-)
+) {
+    /** Logo uploaded for this site, the same one shown on its login screen. */
+    fun uploadedLogoUrl(): String? {
+        return listOf(tenantLogoUrl, loginLogo, siteLogo, companyLogo, logoUrl)
+            .firstOrNull { !it.isNullOrBlank() }
+    }
+}
 
 @JsonClass(generateAdapter = true)
 data class AttendanceInitResponse(

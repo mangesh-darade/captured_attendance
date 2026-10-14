@@ -9,10 +9,11 @@ import android.view.ViewGroup
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,7 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.example.ui.theme.BorderCamera
 import com.example.ui.theme.CameraBackground
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
@@ -41,6 +41,7 @@ fun CameraPreviewView(
     isCameraActive: Boolean,
     onCameraStarted: () -> Unit,
     onCameraFailed: (String) -> Unit,
+    canAcceptFrame: () -> Boolean = { true },
     onFrameCaptured: (String, Bitmap) -> Unit
 ) {
     val context = LocalContext.current
@@ -56,10 +57,9 @@ fun CameraPreviewView(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(16f / 9f)
-            .clip(RoundedCornerShape(12.dp))
+            .aspectRatio(4f / 3f)
+            .clip(RoundedCornerShape(20.dp))
             .background(CameraBackground)
-            .border(1.dp, BorderCamera, RoundedCornerShape(12.dp))
             .testTag("camera_preview")
     ) {
         if (isCameraActive) {
@@ -84,40 +84,67 @@ fun CameraPreviewView(
 
                             var lastAnalyzedTime = 0L
 
+                            val analysisResolution = ResolutionSelector.Builder()
+                                .setResolutionStrategy(
+                                    ResolutionStrategy(
+                                        Size(1280, 720),
+                                        ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                                    )
+                                )
+                                .build()
+
                             val imageAnalysis = ImageAnalysis.Builder()
+                                .setResolutionSelector(analysisResolution)
                                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                                 .build()
 
                             imageAnalysis.setAnalyzer(cameraExecutor) { imageProxy ->
-                                val now = SystemClock.elapsedRealtime()
-                                if (now - lastAnalyzedTime >= 900L) {
-                                    lastAnalyzedTime = now
-                                    try {
-                                        val bitmap = imageProxy.toBitmap()
-                                        val rotation = imageProxy.imageInfo.rotationDegrees
-                                        val matrix = Matrix().apply {
-                                            if (rotation != 0) postRotate(rotation.toFloat())
-                                        }
-                                        val rotated = Bitmap.createBitmap(
-                                            bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
-                                        )
-
-                                        // Downscale to target width 360, maintaining aspect ratio
-                                        val targetW = 360
-                                        val targetH = (targetW * (rotated.height.toFloat() / rotated.width)).toInt()
-                                        val scaled = Bitmap.createScaledBitmap(rotated, targetW, targetH, true)
-
-                                        val byteStream = ByteArrayOutputStream()
-                                        scaled.compress(Bitmap.CompressFormat.JPEG, 65, byteStream)
-                                        val base64 = Base64.encodeToString(byteStream.toByteArray(), Base64.NO_WRAP)
-
-                                        onFrameCaptured(base64, rotated)
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
+                                try {
+                                    val now = SystemClock.elapsedRealtime()
+                                    if (!canAcceptFrame() || now - lastAnalyzedTime < 700L) {
+                                        return@setAnalyzer
                                     }
+                                    lastAnalyzedTime = now
+                                    val bitmap = imageProxy.toBitmap()
+                                    val rotation = imageProxy.imageInfo.rotationDegrees
+                                    val upright = if (rotation == 0) {
+                                        bitmap
+                                    } else {
+                                        val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
+                                        Bitmap.createBitmap(
+                                            bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+                                        ).also { created ->
+                                            if (created !== bitmap) bitmap.recycle()
+                                        }
+                                    }
+
+                                    // Sharp enough for landmarks. 360px JPEG/65 was too soft to match a registered face.
+                                    val maxEdge = 960
+                                    val longest = maxOf(upright.width, upright.height)
+                                    val output = if (longest > maxEdge) {
+                                        val scale = maxEdge.toFloat() / longest
+                                        Bitmap.createScaledBitmap(
+                                            upright,
+                                            (upright.width * scale).toInt().coerceAtLeast(1),
+                                            (upright.height * scale).toInt().coerceAtLeast(1),
+                                            true
+                                        ).also { scaled ->
+                                            if (scaled !== upright) upright.recycle()
+                                        }
+                                    } else {
+                                        upright
+                                    }
+
+                                    val byteStream = ByteArrayOutputStream()
+                                    output.compress(Bitmap.CompressFormat.JPEG, 85, byteStream)
+                                    val base64 = Base64.encodeToString(byteStream.toByteArray(), Base64.NO_WRAP)
+                                    onFrameCaptured(base64, output)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                } finally {
+                                    imageProxy.close()
                                 }
-                                imageProxy.close()
                             }
 
                             val cameraSelector = CameraSelector.Builder()

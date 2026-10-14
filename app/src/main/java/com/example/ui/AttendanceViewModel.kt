@@ -8,6 +8,7 @@ import com.example.data.datastore.CachedAttendanceData
 import com.example.data.model.AttendanceButtonState
 import com.example.data.model.DeriveLocationPreviewResponse
 import com.example.data.model.LocationOption
+import com.example.data.model.sortedByDistance
 import com.example.data.model.StoreAttendanceResponse
 import com.example.data.model.ToastMessage
 import com.example.data.model.ToastType
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import android.graphics.Bitmap
+import android.media.MediaActionSound
 import org.json.JSONObject
 import java.util.Collections
 import java.util.Locale
@@ -35,6 +37,7 @@ data class AttendanceUiState(
     val notes: String = "",
     val locationOptions: List<LocationOption> = emptyList(),
     val selectedLocation: LocationOption? = null,
+    val locationChosenManually: Boolean = false,
     val showLocationPicker: Boolean = false,
     val toast: ToastMessage? = null,
     val tenantLogoUrl: String? = null,
@@ -55,6 +58,8 @@ data class AttendanceUiState(
 
 class AttendanceViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val shutterSound = MediaActionSound()
+
     val networkClientManager = NetworkClientManager(application)
     val preferencesRepository = AttendancePreferencesRepository(application)
     val locationHelper = LocationHelper(application, networkClientManager.nominatimService)
@@ -74,13 +79,32 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     private var scanningTimeoutJob: Job? = null
     private var resetCapturedJob: Job? = null
     private var latestBitmap: Bitmap? = null
+    private var lastAccurateFixAt = 0L
 
     fun onLatestFrame(bitmap: Bitmap) {
+        val previous = latestBitmap
         latestBitmap = bitmap
+        val frozen = _uiState.value.capturedBitmap
+        if (previous != null && previous !== bitmap && previous !== frozen && !previous.isRecycled) {
+            previous.recycle()
+        }
     }
 
     init {
+        shutterSound.load(MediaActionSound.SHUTTER_CLICK)
         loadPreferencesAndBootstrap()
+    }
+
+    override fun onCleared() {
+        shutterSound.release()
+        super.onCleared()
+    }
+
+    private fun playCaptureSound() {
+        try {
+            shutterSound.play(MediaActionSound.SHUTTER_CLICK)
+        } catch (_: Exception) {
+        }
     }
 
     private fun loadPreferencesAndBootstrap() {
@@ -181,6 +205,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                _uiState.update { it.copy(tenantLogoUrl = null) }
             }
         }
     }
@@ -231,25 +256,50 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
     fun triggerLocationAndDerive() {
         viewModelScope.launch {
-            val locResult = locationHelper.getLocation()
-            locResult.onSuccess { loc ->
-                _uiState.update {
-                    it.copy(
-                        currentLat = loc.latitude,
-                        currentLng = loc.longitude
-                    )
-                }
-                // Reverse geocode via Nominatim
-                val landmark = locationHelper.reverseGeocode(loc.latitude, loc.longitude)
-                _uiState.update { it.copy(currentLandmark = landmark) }
-
-                // Call derive location preview (debounce 350 ms)
-                scheduleDerivePreview(includeDescriptor = false, debounceMs = 350L)
-            }.onFailure { err ->
-                val errorMsg = err.message ?: "Location unavailable. Please check location permissions."
-                showToast(ToastType.ERROR, errorMsg, 5500L)
+            val standing = refreshStandingLocation()
+            if (standing == null) {
+                showToast(
+                    ToastType.ERROR,
+                    "Precise location unavailable. Turn on high-accuracy GPS.",
+                    5500L
+                )
+                return@launch
             }
+            scheduleDerivePreview(includeDescriptor = false, debounceMs = 350L)
         }
+    }
+
+    private data class StandingFix(
+        val latitude: Double,
+        val longitude: Double,
+        val landmark: String
+    )
+
+    /** Fresh GPS plus the street landmark for where the device is actually standing. */
+    private suspend fun refreshStandingLocation(): StandingFix? {
+        val loc = locationHelper.getLocation().getOrNull() ?: return null
+        val landmark = locationHelper.reverseGeocode(loc.latitude, loc.longitude)
+        if (landmark.isNotBlank()) {
+            lastAccurateFixAt = System.currentTimeMillis()
+        }
+        _uiState.update {
+            it.copy(
+                currentLat = loc.latitude,
+                currentLng = loc.longitude,
+                currentLandmark = landmark
+            )
+        }
+        return StandingFix(loc.latitude, loc.longitude, landmark)
+    }
+
+    /** A fix already accepted in the last 45s. Avoids another 15s GPS wait on every capture. */
+    private fun recentStandingFix(): StandingFix? {
+        val state = _uiState.value
+        val lat = state.currentLat ?: return null
+        val lng = state.currentLng ?: return null
+        if (state.currentLandmark.isBlank()) return null
+        if (System.currentTimeMillis() - lastAccurateFixAt > 45_000L) return null
+        return StandingFix(lat, lng, state.currentLandmark)
     }
 
     fun onNotesChanged(notes: String) {
@@ -261,7 +311,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun onLocationSelected(option: LocationOption) {
-        _uiState.update { it.copy(selectedLocation = option) }
+        _uiState.update { it.copy(selectedLocation = option, locationChosenManually = true) }
         scheduleDerivePreview(includeDescriptor = false, debounceMs = 100L)
     }
 
@@ -282,7 +332,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 _uiState.update { it.copy(statusText = "Multiple faces detected") }
                 handleNonGoodFace()
             }
-            result.score < 0.65 -> {
+            result.score < 0.55 -> {
                 _uiState.update { it.copy(statusText = "Face detected, hold still for better accuracy") }
                 handleNonGoodFace()
             }
@@ -291,7 +341,6 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 handleNonGoodFace()
             }
             else -> {
-                // Exactly 1 good face with score >= 0.65 and 128 points
                 _uiState.update { it.copy(statusText = "Face detected successfully") }
                 handleGoodFace(result, now)
             }
@@ -299,9 +348,12 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun handleNonGoodFace() {
-        descriptorBuffer.clear()
         consecutiveGoodTicks = 0
         consecutiveNoFaceTicks++
+        // One missed frame used to wipe a good sample set, so Capture posted a single weak scan.
+        if (consecutiveNoFaceTicks >= 3) {
+            descriptorBuffer.clear()
+        }
 
         // After 12 consecutive no/multiple ticks reset suggestion to IN and last activity to "--" unless today's cache exists
         if (consecutiveNoFaceTicks >= 12) {
@@ -322,7 +374,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         consecutiveGoodTicks++
 
         descriptorBuffer.add(result.descriptor)
-        if (descriptorBuffer.size > 3) {
+        if (descriptorBuffer.size > 6) {
             descriptorBuffer.removeAt(0)
         }
 
@@ -339,7 +391,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         val cooldownPassed = (now - lastSubmitTime) >= 5000L
         val hasCoords = state.currentLat != null && state.currentLng != null
         val locationReady = !state.showLocationPicker || state.selectedLocation != null
-        val bufferReady = descriptorBuffer.size >= 3
+        val bufferReady = descriptorBuffer.size >= 4
 
         if (state.isAutoSubmitEnabled && !state.isPosting && state.capturedBitmap == null && cooldownPassed && hasCoords && locationReady && bufferReady && consecutiveGoodTicks >= 4) {
             submitAttendance(isAuto = true)
@@ -401,27 +453,35 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun processDeriveResponse(data: DeriveLocationPreviewResponse) {
-        val options = data.locationOptions ?: emptyList()
+        val options = (data.locationOptions ?: emptyList()).sortedByDistance()
         val requiresSelection = data.isLocationSelectionRequired()
+        val manual = _uiState.value.locationChosenManually
+        val previous = _uiState.value.selectedLocation
+        val previousMatch = previous?.let { selected ->
+            options.firstOrNull { it.pureName() == selected.pureName() }
+        }
 
         var showPicker = false
-        var newSelected = _uiState.value.selectedLocation
+        var newSelected = previousMatch
+        var rederive = false
 
-        if (requiresSelection || options.size >= 2) {
+        if (options.size == 1) {
+            val only = options[0]
             showPicker = true
-            // Keep previous selection, otherwise auto-select first once and re-call derive
-            if (newSelected == null && options.isNotEmpty()) {
-                newSelected = options[0]
-                _uiState.update { it.copy(selectedLocation = newSelected) }
-                scheduleDerivePreview(includeDescriptor = false, debounceMs = 200L)
+            newSelected = only
+            rederive = previous?.pureName() != only.pureName()
+        } else if (requiresSelection || options.size >= 2) {
+            showPicker = true
+            if (manual && previousMatch != null) {
+                newSelected = previousMatch
+            } else {
+                val first = options.first()
+                newSelected = first
+                rederive = previous?.pureName() != first.pureName()
             }
-        } else if (options.size == 1) {
-            // 1 option -> auto-select hidden
-            showPicker = false
-            newSelected = options[0]
         } else {
-            // Empty options or not required
             showPicker = false
+            if (!manual) newSelected = null
         }
 
         // Determine Last activity text and Toggle
@@ -447,6 +507,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 lastActivityText = activity.text,
                 activeToggle = toggle
             )
+        }
+
+        if (rederive) {
+            scheduleDerivePreview(includeDescriptor = false, debounceMs = 200L)
         }
 
         // Cache last activity if present
@@ -479,27 +543,30 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             return
         }
 
-        // If valid 128-point face ready, post now
-        val validDescriptors = descriptorBuffer.filter { it.size == 128 }
-        if (validDescriptors.isNotEmpty()) {
+        // Wait for several steady samples so one blurry frame is not what gets matched.
+        val validCount = synchronized(descriptorBuffer) { descriptorBuffer.count { it.size == 128 } }
+        if (validCount >= 4) {
             submitAttendance(isAuto = false)
             return
         }
 
-        // Else "Scanning...", detect one frame
-        _uiState.update { it.copy(buttonState = AttendanceButtonState.SCANNING, statusText = "Scanning for face...") }
+        _uiState.update { it.copy(buttonState = AttendanceButtonState.SCANNING, statusText = "Hold still, matching your face...") }
         scanningTimeoutJob?.cancel()
         scanningTimeoutJob = viewModelScope.launch {
-            delay(1500L)
-            if (_uiState.value.buttonState == AttendanceButtonState.SCANNING) {
-                val currentValid = descriptorBuffer.filter { it.size == 128 }
-                if (currentValid.isEmpty()) {
-                    val locationSuffix = _uiState.value.selectedLocation?.let { " (Selected: ${it.pureName()})" } ?: ""
-                    showToast(ToastType.ERROR, "No face detected in camera. Please face the camera.$locationSuffix", 4000L)
-                    _uiState.update { it.copy(buttonState = AttendanceButtonState.CAPTURE, statusText = "No face detected") }
-                } else {
-                    submitAttendance(isAuto = false)
-                }
+            val deadline = System.currentTimeMillis() + 2200L
+            while (System.currentTimeMillis() < deadline) {
+                val ready = synchronized(descriptorBuffer) { descriptorBuffer.count { it.size == 128 } }
+                if (ready >= 4) break
+                delay(200L)
+            }
+            if (_uiState.value.buttonState != AttendanceButtonState.SCANNING) return@launch
+            val currentValid = synchronized(descriptorBuffer) { descriptorBuffer.count { it.size == 128 } }
+            if (currentValid == 0) {
+                val locationSuffix = _uiState.value.selectedLocation?.let { " (Selected: ${it.pureName()})" } ?: ""
+                showToast(ToastType.ERROR, "No face detected in camera. Please face the camera.$locationSuffix", 4000L)
+                _uiState.update { it.copy(buttonState = AttendanceButtonState.CAPTURE, statusText = "No face detected") }
+            } else {
+                submitAttendance(isAuto = false)
             }
         }
     }
@@ -522,6 +589,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             return
         }
 
+        // Shutter matches the frozen photo, not the later server reply.
+        playCaptureSound()
         _uiState.update {
             it.copy(
                 isPosting = true,
@@ -532,6 +601,19 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
         viewModelScope.launch {
             try {
+                val standing = recentStandingFix() ?: refreshStandingLocation()
+                if (standing == null || standing.landmark.isBlank()) {
+                    showToast(
+                        ToastType.ERROR,
+                        "Could not fix the landmark where you are standing. Wait for a precise GPS fix.",
+                        5500L
+                    )
+                    _uiState.update {
+                        it.copy(isPosting = false, buttonState = AttendanceButtonState.CAPTURE)
+                    }
+                    return@launch
+                }
+
                 val tokenInfo = networkClientManager.getOrFetchToken(state.baseUrl)
                 val token = tokenInfo.token ?: ""
 
@@ -540,7 +622,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
                 // attendance_type: "check_in" when IN, "check_out" when OUT
                 val attendanceType = if (state.activeToggle == "OUT") "check_out" else "check_in"
-                val selectedLoc = state.selectedLocation?.pureName() ?: ""
+                val selectedLoc = _uiState.value.selectedLocation?.pureName() ?: ""
 
                 val url = "${networkClientManager.sanitizeBaseUrl(state.baseUrl)}attendance_api/store"
 
@@ -548,9 +630,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     url = url,
                     token = token,
                     descriptor = descriptorJson,
-                    latitude = state.currentLat.toString(),
-                    longitude = state.currentLng.toString(),
-                    landmark = state.currentLandmark,
+                    latitude = standing.latitude.toString(),
+                    longitude = standing.longitude.toString(),
+                    landmark = standing.landmark,
                     notes = state.notes,
                     attendanceType = attendanceType,
                     selectedDerivedLocation = selectedLoc
@@ -721,17 +803,50 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     private data class FormattedActivity(val text: String, val toggle: String?)
 
     private fun averageDescriptors(buffer: List<List<Float>>): List<Float> {
-        val list = synchronized(buffer) { buffer.toList() }
+        val list = synchronized(buffer) { buffer.filter { it.size == 128 } }
         if (list.isEmpty()) return emptyList()
-        val dim = list[0].size
-        val count = list.size.toFloat()
+        val samples = dropOutlierDescriptors(list)
+        val dim = 128
         val result = FloatArray(dim)
-        for (desc in list) {
-            for (i in 0 until minOf(dim, desc.size)) {
+        for (desc in samples) {
+            for (i in 0 until dim) {
                 result[i] += desc[i]
             }
         }
-        return result.map { it / count }
+        val count = samples.size.toFloat()
+        var normSq = 0.0
+        for (i in 0 until dim) {
+            result[i] /= count
+            normSq += result[i] * result[i]
+        }
+        val norm = kotlin.math.sqrt(normSq).toFloat()
+        if (norm > 1e-6f) {
+            for (i in 0 until dim) {
+                result[i] /= norm
+            }
+        }
+        return result.toList()
+    }
+
+    /** Drop a turned-away frame so it cannot pull the average off the registered face. */
+    private fun dropOutlierDescriptors(list: List<List<Float>>): List<List<Float>> {
+        if (list.size <= 2) return list
+        val median = FloatArray(128)
+        for (i in 0 until 128) {
+            val column = list.map { it[i] }.sorted()
+            median[i] = column[column.size / 2]
+        }
+        val kept = list.filter { euclideanTo(it, median) <= 0.42f }
+        return if (kept.size >= 2) kept else list
+    }
+
+    private fun euclideanTo(sample: List<Float>, center: FloatArray): Float {
+        var sum = 0.0
+        for (i in 0 until 128) {
+            val diff = sample[i] - center[i]
+            sum += diff * diff
+        }
+        return kotlin.math.sqrt(sum).toFloat()
     }
 
     private fun formatDescriptorJson(descriptor: List<Float>): String {

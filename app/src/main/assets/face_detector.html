@@ -40,9 +40,7 @@
 
         function detectFace(base64Jpeg) {
             if (!isModelReady) {
-                if (window.AndroidBridge && window.AndroidBridge.onDetectionResult) {
-                    window.AndroidBridge.onDetectionResult(0, 0, "[]");
-                }
+                report(0, 0, "[]", "");
                 return;
             }
             if (isDetecting) {
@@ -53,44 +51,45 @@
             const img = new Image();
             img.onload = async function() {
                 try {
-                    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 });
+                    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.45 });
                     const results = await faceapi
                         .detectAllFaces(img, options)
                         .withFaceLandmarks()
                         .withFaceDescriptors();
 
                     if (!results || results.length === 0) {
-                        if (window.AndroidBridge && window.AndroidBridge.onDetectionResult) {
-                            window.AndroidBridge.onDetectionResult(0, 0, "[]");
-                        }
+                        report(0, 0, "[]", "");
                     } else if (results.length > 1) {
-                        if (window.AndroidBridge && window.AndroidBridge.onDetectionResult) {
-                            window.AndroidBridge.onDetectionResult(results.length, 0, "[]");
-                        }
+                        report(results.length, 0, "[]", "");
                     } else {
                         const r = results[0];
                         const score = r.detection ? r.detection.score : 0.85;
-                        const desc = Array.from(r.descriptor);
-                        if (window.AndroidBridge && window.AndroidBridge.onDetectionResult) {
-                            window.AndroidBridge.onDetectionResult(1, score, JSON.stringify(desc));
+                        const box = r.detection && r.detection.box ? r.detection.box.width : 0;
+                        if (box < 80) {
+                            report(1, Math.min(score, 0.5), "[]", "");
+                        } else {
+                            const desc = Array.from(r.descriptor);
+                            report(1, score, JSON.stringify(desc), "");
                         }
                     }
                 } catch (e) {
                     console.error("detect error", e);
-                    if (window.AndroidBridge && window.AndroidBridge.onDetectionResult) {
-                        window.AndroidBridge.onDetectionResult(0, 0, "[]");
-                    }
+                    report(0, 0, "[]", "");
                 } finally {
                     isDetecting = false;
                 }
             };
-            img.onerror = function(e) {
+            img.onerror = function() {
                 isDetecting = false;
-                if (window.AndroidBridge && window.AndroidBridge.onDetectionResult) {
-                    window.AndroidBridge.onDetectionResult(0, 0, "[]");
-                }
+                report(0, 0, "[]", "");
             };
             img.src = "data:image/jpeg;base64," + base64Jpeg;
+        }
+
+        function report(faceCount, score, descriptorJson, alignedJpeg) {
+            if (window.AndroidBridge && window.AndroidBridge.onDetectionResult) {
+                window.AndroidBridge.onDetectionResult(faceCount, score, descriptorJson, alignedJpeg || "");
+            }
         }
 
         window.addEventListener('DOMContentLoaded', () => {

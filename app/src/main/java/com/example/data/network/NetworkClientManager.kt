@@ -1,6 +1,8 @@
 package com.example.data.network
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import com.example.data.model.DeriveLocationPreviewResponse
 import com.example.data.model.StoreAttendanceResponse
@@ -19,6 +21,30 @@ data class CapturedPageInfo(
     val tenantLogoUrl: String?,
     val tenantSiteName: String?
 )
+
+/**
+ * Logo on the site login screen. Skips the Elintom product mark and favicon
+ * when the uploaded company logo is also present.
+ */
+internal fun pickLoginScreenLogo(html: String): String? {
+    val imgPattern = Pattern.compile("<img\\b[^>]*>", Pattern.CASE_INSENSITIVE)
+    val srcPattern = Pattern.compile("(?:src|data-src)=[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE)
+    val candidates = mutableListOf<String>()
+    val matcher = imgPattern.matcher(html)
+    while (matcher.find()) {
+        val tag = matcher.group(0) ?: continue
+        val srcMatcher = srcPattern.matcher(tag)
+        if (!srcMatcher.find()) continue
+        val src = srcMatcher.group(1)?.trim().orEmpty()
+        if (src.isBlank()) continue
+        val blob = (tag + " " + src).lowercase()
+        if (blob.contains("logo")) candidates.add(src)
+    }
+    return candidates.firstOrNull { src ->
+        val value = src.lowercase()
+        !value.contains("elintom") && !value.contains("favicon")
+    } ?: candidates.firstOrNull { !it.lowercase().contains("favicon") }
+}
 
 class NetworkClientManager(private val context: Context) {
 
@@ -79,10 +105,22 @@ class NetworkClientManager(private val context: Context) {
     }
 
     suspend fun getOrFetchToken(baseUrl: String, forceRefresh: Boolean = false): CapturedPageInfo {
+        if (!isOnline()) {
+            val host = Uri.parse(sanitizeBaseUrl(baseUrl)).host ?: ""
+            val token = cookieJar.getTokenCookie(host) ?: cookieJar.getTokenCookie(null)
+            return CapturedPageInfo(token ?: cachedToken, tenantLogoUrl = null, tenantSiteName = cachedSiteName)
+        }
         if (!forceRefresh && cachedToken != null && !isCapturedExpired()) {
             return CapturedPageInfo(cachedToken, cachedLogoUrl, cachedSiteName)
         }
         return fetchCapturedPage(baseUrl)
+    }
+
+    fun isOnline(): Boolean {
+        val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     suspend fun fetchCapturedPage(baseUrl: String): CapturedPageInfo {
@@ -95,7 +133,8 @@ class NetworkClientManager(private val context: Context) {
             if (apiResponse.isSuccessful && apiResponse.body()?.data != null) {
                 val data = apiResponse.body()!!.data!!
                 val siteName = data.siteName
-                val logoUrl = data.tenantLogoUrl
+                val logoUrl = normalizeLogo(sanitizedBase, data.uploadedLogoUrl())
+                    ?: fetchLoginScreenLogo(sanitizedBase)
                 cachedLogoUrl = logoUrl
                 cachedSiteName = siteName
                 cachedToken = ""
@@ -121,8 +160,8 @@ class NetworkClientManager(private val context: Context) {
                 token = cookieJar.getTokenCookie(null)
             }
 
-            // Parse 2nd img.attendance-logo
-            val logoUrl = parseTenantLogo(html, sanitizedBase)
+            // Login-screen logo of this site. Fall back to the tenant mark on the captured page.
+            val logoUrl = fetchLoginScreenLogo(sanitizedBase) ?: parseTenantLogo(html, sanitizedBase)
             val siteName = parseSiteName(html)
 
             cachedToken = token
@@ -133,10 +172,9 @@ class NetworkClientManager(private val context: Context) {
             CapturedPageInfo(token, logoUrl, siteName)
         } catch (e: Exception) {
             e.printStackTrace()
-            // Fallback to cookie if available
             val host = Uri.parse(sanitizedBase).host ?: ""
             val token = cookieJar.getTokenCookie(host) ?: cookieJar.getTokenCookie(null)
-            CapturedPageInfo(token ?: cachedToken, cachedLogoUrl, cachedSiteName)
+            CapturedPageInfo(token ?: cachedToken, tenantLogoUrl = null, tenantSiteName = cachedSiteName)
         }
     }
 
@@ -152,6 +190,22 @@ class NetworkClientManager(private val context: Context) {
             return altMatcher.group(1)
         }
         return null
+    }
+
+    private suspend fun fetchLoginScreenLogo(baseUrl: String): String? {
+        return try {
+            val response = attendanceService.getCapturedPage("${baseUrl}login")
+            val html = response.body()?.string() ?: return null
+            val raw = pickLoginScreenLogo(html) ?: return null
+            normalizeLogo(baseUrl, raw)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun normalizeLogo(baseUrl: String, raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        return resolveUrl(baseUrl, raw.trim())
     }
 
     private fun parseTenantLogo(html: String, baseUrl: String): String? {

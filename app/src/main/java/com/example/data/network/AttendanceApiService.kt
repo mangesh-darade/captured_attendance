@@ -53,6 +53,8 @@ interface NominatimService {
         @Query("format") format: String = "jsonv2",
         @Query("lat") lat: Double,
         @Query("lon") lon: Double,
+        @Query("zoom") zoom: Int = 18,
+        @Query("addressdetails") addressDetails: Int = 1,
         @Header("User-Agent") userAgent: String = "CaptureAttendanceKiosk/1.0 (Android Native; contact: support@elintom.com)"
     ): Response<ResponseBody>
 }

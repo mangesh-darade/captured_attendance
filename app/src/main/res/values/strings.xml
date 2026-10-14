@@ -14,4 +14,5 @@
     <string name="btn_retake">Retake</string>
     <string name="multiple_locations_hint">Multiple nearby locations found. Please select one location.</string>
     <string name="select_nearby_location">Select nearby location</string>
+    <string name="label_standing_landmark">You are here</string>
 </resources>

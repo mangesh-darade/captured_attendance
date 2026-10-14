@@ -1,33 +1,53 @@
 package com.example.face
 
 import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.os.SystemClock
 import org.json.JSONArray
 import java.io.InputStream
+import java.util.concurrent.atomic.AtomicLong
 
 data class FaceDetectionResult(
     val faceCount: Int,
     val score: Double,
-    val descriptor: List<Float>
+    val descriptor: List<Float>,
+    val alignedFace: Bitmap? = null
 ) {
-    val isGoodFace: Boolean get() = faceCount == 1 && score >= 0.65 && descriptor.size == 128
+    val isGoodFace: Boolean get() = faceCount == 1 && score >= 0.55 && descriptor.size == 128
 }
 
 class FaceDetectionBridge(
     private val onModelStatusChanged: (Boolean, String) -> Unit,
     private val onDetectionResultReceived: (FaceDetectionResult) -> Unit
 ) {
+    private val frameSentAt = AtomicLong(0L)
+
+    /** Skip another JPEG while face-api is still reading the previous frame. */
+    fun canAcceptFrame(): Boolean {
+        val sent = frameSentAt.get()
+        if (sent == 0L) return true
+        return SystemClock.elapsedRealtime() - sent > 1800L
+    }
+
+    fun markFrameSent() {
+        frameSentAt.set(SystemClock.elapsedRealtime())
+    }
+
     @JavascriptInterface
     fun onModelsLoaded(success: Boolean, message: String) {
         onModelStatusChanged(success, message)
     }
 
     @JavascriptInterface
-    fun onDetectionResult(faceCount: Int, score: Double, descriptorJson: String) {
+    fun onDetectionResult(faceCount: Int, score: Double, descriptorJson: String, alignedJpegBase64: String) {
+        frameSentAt.set(0L)
         val list = mutableListOf<Float>()
         try {
             val jsonArray = JSONArray(descriptorJson)
@@ -37,7 +57,19 @@ class FaceDetectionBridge(
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        onDetectionResultReceived(FaceDetectionResult(faceCount, score, list))
+        val aligned = decodeAlignedFace(alignedJpegBase64)
+        onDetectionResultReceived(FaceDetectionResult(faceCount, score, list, aligned))
+    }
+
+    private fun decodeAlignedFace(base64: String): Bitmap? {
+        if (base64.isBlank()) return null
+        return try {
+            val bytes = Base64.decode(base64, Base64.DEFAULT)
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
 }
 
