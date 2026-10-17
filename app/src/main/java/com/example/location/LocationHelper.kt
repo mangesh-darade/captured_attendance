@@ -96,11 +96,36 @@ internal fun formatLandmark(parts: LandmarkParts): String {
 internal fun formatAddressLandmark(address: Address): String {
     val feature = address.featureName?.trim().orEmpty()
     val premises = address.premises?.trim().orEmpty()
-    val street = listOf(address.subThoroughfare?.trim().orEmpty(), address.thoroughfare?.trim().orEmpty())
-        .filter { it.isNotBlank() }
-        .joinToString(" ")
+    val subThoroughfare = address.subThoroughfare?.trim().orEmpty()
+    val thoroughfare = address.thoroughfare?.trim().orEmpty()
     val subLocality = address.subLocality?.trim().orEmpty()
     val locality = address.locality?.trim().orEmpty()
+    val addressLine = address.getAddressLine(0)?.trim().orEmpty()
+
+    // Extract road/lane from addressLine if thoroughfare is empty (common in India Google Geocoder)
+    val streetFromLine: String = if (thoroughfare.isBlank() && addressLine.isNotBlank()) {
+        val tokens = addressLine.split(",")
+            .map { it.trim() }
+            .filter { token ->
+                token.isNotBlank() &&
+                !token.contains("+") &&
+                !token.matches(Regex(".*\\b\\d{6}\\b.*")) &&
+                !token.equals("India", ignoreCase = true) &&
+                !token.equals("Maharashtra", ignoreCase = true) &&
+                !token.equals(subLocality, ignoreCase = true) &&
+                !token.equals(locality, ignoreCase = true)
+            }
+        tokens.firstOrNull { token ->
+            listOf("lane", "road", "rd", "galli", "wadi", "chowk", "nagar", "colony", "society", "street")
+                .any { token.contains(it, ignoreCase = true) }
+        } ?: tokens.firstOrNull().orEmpty()
+    } else {
+        ""
+    }
+
+    val street = listOf(subThoroughfare, thoroughfare.ifBlank { streetFromLine })
+        .filter { it.isNotBlank() }
+        .joinToString(" ")
 
     val isPlusCode = feature.contains("+") || feature.matches(Regex("^[A-Z0-9]{4,8}\\+[A-Z0-9]{2,4}$"))
     val place = when {
@@ -119,9 +144,8 @@ internal fun formatAddressLandmark(address: Address): String {
         return parts.joinToString(", ")
     }
 
-    val line = address.getAddressLine(0) ?: ""
-    if (line.isNotBlank()) {
-        return line.split(",")
+    if (addressLine.isNotBlank()) {
+        return addressLine.split(",")
             .map { it.trim() }
             .filter { it.isNotBlank() && !it.contains("+") }
             .take(3)
@@ -229,14 +253,28 @@ class LocationHelper(
     }
 
     suspend fun reverseGeocode(latitude: Double, longitude: Double): String {
-        // 1. Try native Android Geocoder (Google Play Services backed, accurate for India)
-        val nativeLandmark = reverseGeocodeNative(latitude, longitude)
-        if (nativeLandmark.isNotBlank()) {
-            return nativeLandmark
+        // 1. Query Nominatim (OSM provides hyper-local road & lane numbers like "Lane Number 16")
+        val nominatimLandmark = reverseGeocodeNominatim(latitude, longitude)
+        val nominatimHasDetailedRoad = nominatimLandmark.contains(",") ||
+            listOf("lane", "road", "rd", "galli", "wadi", "chowk", "nagar", "colony", "society")
+                .any { nominatimLandmark.contains(it, ignoreCase = true) }
+
+        if (nominatimHasDetailedRoad) {
+            return nominatimLandmark
         }
 
-        // 2. Fallback to OpenStreetMap Nominatim
-        return reverseGeocodeNominatim(latitude, longitude)
+        // 2. Query native Android Geocoder (Google Play Services)
+        val nativeLandmark = reverseGeocodeNative(latitude, longitude)
+        val nativeHasDetailedRoad = nativeLandmark.contains(",") ||
+            listOf("lane", "road", "rd", "galli", "wadi", "chowk", "nagar", "colony", "society")
+                .any { nativeLandmark.contains(it, ignoreCase = true) }
+
+        return when {
+            nativeHasDetailedRoad -> nativeLandmark
+            nominatimLandmark.isNotBlank() -> nominatimLandmark
+            nativeLandmark.isNotBlank() -> nativeLandmark
+            else -> ""
+        }
     }
 
     private suspend fun reverseGeocodeNative(latitude: Double, longitude: Double): String {
