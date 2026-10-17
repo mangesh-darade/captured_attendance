@@ -58,13 +58,14 @@ class NetworkClientManager(private val context: Context) {
         level = HttpLoggingInterceptor.Level.BASIC
     }
 
-    var currentApiKey: String = ""
+    var currentDeviceToken: String = ""
 
     private val authInterceptor = okhttp3.Interceptor { chain ->
         val original = chain.request()
         val builder = original.newBuilder()
-        if (currentApiKey.isNotBlank()) {
-            builder.header("X-API-KEY", currentApiKey)
+        val host = original.url.host
+        if (currentDeviceToken.isNotBlank() && !host.contains("openstreetmap.org")) {
+            builder.header("Authorization", "Bearer $currentDeviceToken")
         }
         chain.proceed(builder.build())
     }
@@ -88,7 +89,7 @@ class NetworkClientManager(private val context: Context) {
 
     // Base Retrofit for attendance service (endpoints use dynamic @Url)
     private val attendanceRetrofit = Retrofit.Builder()
-        .baseUrl("https://attendance.elintom.com/") // default fallback, dynamic @Url overrides
+        .baseUrl("http://localhost/") // Retrofit requires a base; requests pass a full URL
         .client(okHttpClient)
         .addConverterFactory(MoshiConverterFactory.create(moshi))
         .build()
@@ -263,6 +264,9 @@ class NetworkClientManager(private val context: Context) {
 
     fun sanitizeBaseUrl(raw: String): String {
         var trimmed = raw.trim()
+        if (trimmed.isEmpty()) {
+            return ""
+        }
         if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
             trimmed = "https://$trimmed"
         }
@@ -270,5 +274,21 @@ class NetworkClientManager(private val context: Context) {
             trimmed = "$trimmed/"
         }
         return trimmed
+    }
+
+    /**
+     * Company code becomes https://{code}.elintom.com/.
+     * A full URL is kept so a local server can still be used.
+     */
+    fun baseUrlFromCompanyCode(raw: String): String {
+        val trimmed = raw.trim()
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.contains("/")) {
+            return sanitizeBaseUrl(trimmed)
+        }
+        if (trimmed.contains(".")) {
+            return sanitizeBaseUrl(trimmed)
+        }
+        val code = trimmed.lowercase().replace(Regex("[^a-z0-9-]"), "")
+        return "https://$code.elintom.com/"
     }
 }

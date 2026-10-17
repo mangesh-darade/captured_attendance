@@ -111,6 +111,27 @@ data class AttendanceInitData(
 }
 
 @JsonClass(generateAdapter = true)
+data class AttendanceSetupResponse(
+    val status: String? = null,
+    val message: String? = null,
+    val url: String? = null,
+    val code: String? = null,
+    val name: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class AttendanceLoginResponse(
+    val status: String? = null,
+    val message: String? = null,
+    val token: String? = null,
+    @Json(name = "user_id")
+    val userId: Int? = null,
+    @Json(name = "user_name")
+    val userName: String? = null,
+    val code: String? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class AttendanceInitResponse(
     val status: String? = null,
     val message: String? = null,
@@ -129,7 +150,15 @@ data class StoreAttendanceResponse(
     @Json(name = "last_activity_type")
     val lastActivityType: String? = null,
     @Json(name = "last_activity_at")
-    val lastActivityAt: String? = null
+    val lastActivityAt: String? = null,
+    @Json(name = "derived_location")
+    val derivedLocation: String? = null,
+    @Json(name = "site_latitude")
+    val siteLatitude: Double? = null,
+    @Json(name = "site_longitude")
+    val siteLongitude: Double? = null,
+    @Json(name = "radius_m")
+    val radiusM: Int? = null
 )
 
 data class ToastMessage(

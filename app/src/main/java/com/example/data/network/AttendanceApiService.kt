@@ -1,5 +1,7 @@
 package com.example.data.network
 
+import com.example.data.model.AttendanceLoginResponse
+import com.example.data.model.AttendanceSetupResponse
 import com.example.data.model.DeriveLocationPreviewResponse
 import com.example.data.model.StoreAttendanceResponse
 import okhttp3.ResponseBody
@@ -13,6 +15,24 @@ import retrofit2.http.Query
 import retrofit2.http.Url
 
 interface AttendanceApiService {
+
+    @FormUrlEncoded
+    @POST
+    suspend fun setup(
+        @Url url: String,
+        @Field("android_code") androidCode: String
+    ): Response<AttendanceSetupResponse>
+
+    @FormUrlEncoded
+    @POST
+    suspend fun login(
+        @Url url: String,
+        @Field("phone") phone: String,
+        @Field("password") password: String
+    ): Response<AttendanceLoginResponse>
+
+    @POST
+    suspend fun logout(@Url url: String): Response<AttendanceLoginResponse>
 
     @GET
     suspend fun getInitData(@Url url: String): Response<com.example.data.model.AttendanceInitResponse>
@@ -43,8 +63,12 @@ interface AttendanceApiService {
         @Field("notes") notes: String,
         @Field("attendance_type") attendanceType: String,
         @Field("selected_derived_location") selectedDerivedLocation: String,
-        @Field("token") token: String? = null
+        @Field("token") token: String? = null,
+        @Field("punched_at") punchedAt: String? = null
     ): Response<StoreAttendanceResponse>
+
+    @GET
+    suspend fun getSites(@Url url: String): Response<ResponseBody>
 }
 
 interface NominatimService {
