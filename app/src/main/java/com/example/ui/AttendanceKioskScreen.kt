@@ -2,6 +2,7 @@ package com.example.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -28,6 +29,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -53,6 +55,7 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.geometry.Offset
@@ -73,10 +76,18 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.runtime.Composable
+import android.content.Intent
+import android.location.LocationManager
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -204,7 +215,10 @@ fun AttendanceKioskScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsState()
+    var showProfile by remember { mutableStateOf(false) }
+    var confirmLogout by remember { mutableStateOf(false) }
 
     // Permissions launcher
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -221,13 +235,8 @@ fun AttendanceKioskScreen(
 
         if (fineGranted) {
             viewModel.triggerLocationAndDerive()
-        } else {
-            viewModel.showToast(
-                ToastType.ERROR,
-                "Precise location is required for the correct landmark.",
-                5500L
-            )
         }
+        reportDeviceAccess(context, viewModel)
     }
 
     LaunchedEffect(Unit) {
@@ -250,6 +259,39 @@ fun AttendanceKioskScreen(
             viewModel.onCameraStarted()
             viewModel.triggerLocationAndDerive()
         }
+        reportDeviceAccess(context, viewModel)
+    }
+
+    val areaPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { }
+
+    LaunchedEffect(uiState.areaTracking) {
+        if (!uiState.areaTracking) return@LaunchedEffect
+        val needed = mutableListOf<String>()
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            needed.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        if (Build.VERSION.SDK_INT >= 29 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED
+        ) {
+            needed.add(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+        }
+        if (needed.isNotEmpty()) {
+            areaPermissionLauncher.launch(needed.toTypedArray())
+        }
+    }
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                reportDeviceAccess(context, viewModel)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     // Hidden WebView for offline face-api.js 0.22.2 TinyFaceDetector + FaceLandmark68Net + FaceRecognitionNet
@@ -301,7 +343,13 @@ fun AttendanceKioskScreen(
             HeaderBar(
                 tenantLogoUrl = uiState.tenantLogoUrl,
                 tenantSiteName = uiState.tenantSiteName,
-                onLogoLongClick = { viewModel.onSettingsClicked() }
+                userName = uiState.loggedInUserName,
+                onLogoLongClick = { viewModel.onSettingsClicked() },
+                onProfileClick = if (uiState.deviceToken.isNotBlank()) {
+                    { showProfile = true }
+                } else {
+                    null
+                }
             )
 
             // Scrollable body
@@ -314,6 +362,35 @@ fun AttendanceKioskScreen(
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                AccessStatusCard(
+                    cameraAllowed = uiState.cameraAllowed,
+                    locationAllowed = uiState.locationAllowed,
+                    gpsEnabled = uiState.gpsEnabled,
+                    isOnline = uiState.isOnline,
+                    waitingToSend = uiState.waitingToSend,
+                    onAllowCamera = {
+                        permissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
+                    },
+                    onAllowLocation = {
+                        permissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION
+                            )
+                        )
+                    },
+                    onOpenGpsSettings = {
+                        context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS))
+                    },
+                    onOpenAppSettings = {
+                        val intent = Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                            Uri.fromParts("package", context.packageName, null)
+                        )
+                        context.startActivity(intent)
+                    }
+                )
+
                 // Card 1: Location & IN / OUT
                 Surface(
                     shape = RoundedCornerShape(16.dp),
@@ -590,12 +667,79 @@ fun AttendanceKioskScreen(
         // Hidden Settings Dialog for Tenant Base URL & API Key configuration
         if (uiState.showSettingsDialog) {
             SettingsDialog(
-                currentBaseUrl = uiState.baseUrl,
-                currentApiKey = uiState.apiKey,
+                currentBaseUrl = uiState.masterUrl,
                 currentAutoSubmit = uiState.isAutoSubmitEnabled,
                 onDismiss = { viewModel.dismissSettingsDialog() },
-                onSave = { url, key, autoSubmit -> viewModel.updateSettings(url, key, autoSubmit) },
-                onTestConnection = { url, key, cb -> viewModel.testConnection(url, key, cb) }
+                onSave = { url, autoSubmit -> viewModel.updateSettings(url, autoSubmit) },
+                onTestConnection = { url, cb -> viewModel.testConnection(url, cb) }
+            )
+        }
+
+        if (showProfile && uiState.deviceToken.isNotBlank()) {
+            ProfileDialog(
+                userName = uiState.loggedInUserName,
+                autoSubmit = uiState.isAutoSubmitEnabled,
+                onAutoSubmitChange = { viewModel.setAutoSubmit(it) },
+                onDismiss = { showProfile = false },
+                onLogoutClick = {
+                    showProfile = false
+                    confirmLogout = true
+                }
+            )
+        }
+
+        if (confirmLogout) {
+            AlertDialog(
+                onDismissRequest = { confirmLogout = false },
+                title = {
+                    Text(
+                        text = "Log out?",
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                },
+                text = {
+                    Text(
+                        text = "Are you sure you want to log out, ${uiState.loggedInUserName.ifBlank { "this user" }}?",
+                        fontFamily = InterFontFamily,
+                        color = TextMuted
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            confirmLogout = false
+                            viewModel.logout()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
+                    ) {
+                        Text("Log out", fontFamily = InterFontFamily, color = Color.White)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { confirmLogout = false }) {
+                        Text("Cancel", fontFamily = InterFontFamily, color = TextMuted)
+                    }
+                }
+            )
+        }
+
+        if (uiState.deviceToken.isBlank()) {
+            MerchantCodeScreen(
+                androidCode = uiState.androidCode,
+                merchantCode = uiState.companyCode,
+                shopName = uiState.tenantSiteName.orEmpty(),
+                setupComplete = uiState.setupComplete,
+                isSettingUp = uiState.isSettingUp,
+                setupError = uiState.setupError,
+                savedPhone = uiState.savedPhone,
+                isLoggingIn = uiState.isLoggingIn,
+                loginError = uiState.loginError,
+                isOnline = uiState.isOnline,
+                onOpenSettings = { viewModel.onSettingsClicked() },
+                onSetup = { code -> viewModel.setupWithAndroidCode("", code) },
+                onLogin = { phone, password -> viewModel.login(phone, password) }
             )
         }
     }
@@ -605,7 +749,9 @@ fun AttendanceKioskScreen(
 private fun HeaderBar(
     tenantLogoUrl: String?,
     tenantSiteName: String?,
-    onLogoLongClick: () -> Unit
+    userName: String,
+    onLogoLongClick: () -> Unit,
+    onProfileClick: (() -> Unit)? = null
 ) {
     Box(
         modifier = Modifier
@@ -689,8 +835,265 @@ private fun HeaderBar(
                     alignment = Alignment.CenterStart
                 )
             }
+            Spacer(modifier = Modifier.weight(1f))
+            val headerName = userName.ifBlank { tenantSiteName.orEmpty() }
+            if (headerName.isNotBlank()) {
+                Text(
+                    text = headerName,
+                    fontFamily = InterFontFamily,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.End,
+                    modifier = Modifier
+                        .padding(end = 8.dp)
+                        .widthIn(max = 170.dp)
+                )
+            }
+            if (onProfileClick != null) {
+                ProfileAvatar(
+                    name = userName,
+                    onClick = onProfileClick,
+                    size = 36.dp
+                )
+            }
         }
     }
+}
+
+private fun reportDeviceAccess(context: android.content.Context, viewModel: AttendanceViewModel) {
+    val cameraAllowed = ContextCompat.checkSelfPermission(
+        context, Manifest.permission.CAMERA
+    ) == PackageManager.PERMISSION_GRANTED
+    val locationAllowed = ContextCompat.checkSelfPermission(
+        context, Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+    val gpsEnabled = try {
+        val manager = context.getSystemService(android.content.Context.LOCATION_SERVICE) as LocationManager
+        manager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+            manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+    } catch (_: Exception) {
+        false
+    }
+    viewModel.setDeviceAccess(cameraAllowed, locationAllowed, gpsEnabled)
+}
+
+@Composable
+private fun AccessStatusCard(
+    cameraAllowed: Boolean,
+    locationAllowed: Boolean,
+    gpsEnabled: Boolean,
+    isOnline: Boolean,
+    waitingToSend: Boolean,
+    onAllowCamera: () -> Unit,
+    onAllowLocation: () -> Unit,
+    onOpenGpsSettings: () -> Unit,
+    onOpenAppSettings: () -> Unit
+) {
+    if (cameraAllowed && locationAllowed && gpsEnabled && isOnline && !waitingToSend) return
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+        if (!cameraAllowed) {
+            StatusRow(
+                message = "Camera access is off. Face attendance needs the camera.",
+                action = "Allow",
+                onAction = onAllowCamera,
+                secondaryAction = "Settings",
+                onSecondary = onOpenAppSettings
+            )
+        }
+        if (!locationAllowed) {
+            StatusRow(
+                message = "Location access is off. Attendance needs GPS.",
+                action = "Allow",
+                onAction = onAllowLocation,
+                secondaryAction = "Settings",
+                onSecondary = onOpenAppSettings
+            )
+        } else if (!gpsEnabled) {
+            StatusRow(
+                message = "GPS is turned off. Turn on location to mark attendance.",
+                action = "Turn on GPS",
+                onAction = onOpenGpsSettings
+            )
+        }
+        if (!isOnline) {
+            StatusRow(
+                message = if (waitingToSend) {
+                    "No internet. Check-in and check-out are saved on this phone and will sync when internet is back."
+                } else {
+                    "No internet connection."
+                },
+                action = null,
+                onAction = null
+            )
+        } else if (waitingToSend) {
+            StatusRow(
+                message = "Internet is back. Sending saved attendance.",
+                action = null,
+                onAction = null
+            )
+        }
+    }
+}
+
+@Composable
+private fun StatusRow(
+    message: String,
+    action: String?,
+    onAction: (() -> Unit)?,
+    secondaryAction: String? = null,
+    onSecondary: (() -> Unit)? = null
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFFFF7ED),
+        border = BorderStroke(1.dp, Color(0xFFFDBA74)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(
+                text = message,
+                fontFamily = InterFontFamily,
+                fontSize = 13.sp,
+                color = Color(0xFF9A3412)
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (action != null && onAction != null) {
+                    Button(
+                        onClick = onAction,
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
+                    ) {
+                        Text(action, fontFamily = InterFontFamily, color = Color.White)
+                    }
+                }
+                if (secondaryAction != null && onSecondary != null) {
+                    TextButton(onClick = onSecondary) {
+                        Text(secondaryAction, fontFamily = InterFontFamily, color = BrandPrimary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProfileAvatar(
+    name: String,
+    size: androidx.compose.ui.unit.Dp,
+    onClick: (() -> Unit)? = null
+) {
+    val initial = name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "U"
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(BrandPrimary)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = initial,
+            color = Color.White,
+            fontFamily = InterFontFamily,
+            fontWeight = FontWeight.Bold,
+            fontSize = if (size < 48.dp) 16.sp else 28.sp
+        )
+    }
+}
+
+@Composable
+private fun ProfileDialog(
+    userName: String,
+    autoSubmit: Boolean,
+    onAutoSubmitChange: (Boolean) -> Unit,
+    onDismiss: () -> Unit,
+    onLogoutClick: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", fontFamily = InterFontFamily, color = TextMuted)
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ProfileAvatar(name = userName, size = 72.dp)
+                Text(
+                    text = userName.ifBlank { "Signed in" },
+                    fontFamily = InterFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = TextPrimary,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    text = "Signed in",
+                    fontFamily = InterFontFamily,
+                    fontSize = 13.sp,
+                    color = TextMuted
+                )
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (autoSubmit) "Auto submit" else "Manual submit",
+                                fontFamily = InterFontFamily,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = if (autoSubmit) "Marks attendance when your face is ready" else "Press Capture to mark attendance",
+                                fontFamily = InterFontFamily,
+                                fontSize = 12.sp,
+                                color = TextMuted
+                            )
+                        }
+                        Switch(
+                            checked = autoSubmit,
+                            onCheckedChange = onAutoSubmitChange,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = BrandPrimary
+                            )
+                        )
+                    }
+                }
+                Button(
+                    onClick = onLogoutClick,
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Logout,
+                        contentDescription = null,
+                        tint = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Log out", fontFamily = InterFontFamily, color = Color.White)
+                }
+            }
+        }
+    )
 }
 
 @Composable
@@ -1072,13 +1475,197 @@ private fun ToastBanner(
 }
 
 @Composable
+private fun MerchantCodeScreen(
+    androidCode: String,
+    merchantCode: String,
+    shopName: String,
+    setupComplete: Boolean,
+    isSettingUp: Boolean,
+    setupError: String?,
+    savedPhone: String,
+    isLoggingIn: Boolean,
+    loginError: String?,
+    isOnline: Boolean,
+    onOpenSettings: () -> Unit,
+    onSetup: (String) -> Unit,
+    onLogin: (String, String) -> Unit
+) {
+    var codeText by remember { mutableStateOf(androidCode) }
+    var usernameText by remember { mutableStateOf(savedPhone) }
+    var passwordText by remember { mutableStateOf("") }
+    val linked = setupComplete && setupError.isNullOrBlank() && androidCode.isNotBlank() && codeText.trim().equals(androidCode, ignoreCase = true)
+    val scrollState = rememberScrollState()
+
+    LaunchedEffect(codeText) {
+        val code = codeText.trim()
+        if (!code.matches(Regex("^[A-Za-z0-9]{4,64}$"))) {
+            return@LaunchedEffect
+        }
+        delay(500)
+        onSetup(code)
+    }
+
+    LaunchedEffect(androidCode) {
+        if (codeText.isBlank() && androidCode.isNotBlank()) {
+            codeText = androidCode
+        }
+    }
+    LaunchedEffect(savedPhone) {
+        if (usernameText.isBlank() && savedPhone.isNotBlank()) {
+            usernameText = savedPhone
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(PageBackground),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = 420.dp)
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(24.dp)
+                .verticalScroll(scrollState),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Merchant Code",
+                    fontFamily = InterFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 22.sp,
+                    color = TextPrimary
+                )
+                IconButton(onClick = onOpenSettings) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Server settings",
+                        tint = TextMuted
+                    )
+                }
+            }
+            Text(
+                text = "Enter the Android unique code saved on the merchant.",
+                fontFamily = InterFontFamily,
+                fontSize = 13.sp,
+                color = TextMuted
+            )
+
+            OutlinedTextField(
+                value = codeText,
+                onValueChange = { codeText = it.uppercase() },
+                label = { Text("Merchant code", fontFamily = InterFontFamily) },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (!isOnline) {
+                Text(
+                    text = "No internet connection. Setup will work when internet is back.",
+                    fontFamily = InterFontFamily,
+                    fontSize = 12.sp,
+                    color = Color(0xFFDC2626)
+                )
+            }
+            if (!setupError.isNullOrBlank()) {
+                Surface(
+                    color = Color(0xFFFEE2E2),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = setupError,
+                        fontFamily = InterFontFamily,
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFB91C1C),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                    )
+                }
+            }
+            if (isSettingUp && !linked) {
+                Text(
+                    text = "Connecting...",
+                    fontFamily = InterFontFamily,
+                    fontSize = 14.sp,
+                    color = TextMuted
+                )
+            }
+            if (linked) {
+                Text(
+                    text = buildString {
+                        append("Status: Connected")
+                        append("\nCode: ")
+                        append(merchantCode.ifBlank { androidCode })
+                        if (shopName.isNotBlank()) {
+                            append("\n")
+                            append(shopName)
+                        }
+                    },
+                    fontFamily = InterFontFamily,
+                    fontSize = 14.sp,
+                    color = Color(0xFF1D5C32)
+                )
+                OutlinedTextField(
+                    value = usernameText,
+                    onValueChange = { usernameText = it },
+                    label = { Text("Username", fontFamily = InterFontFamily) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = passwordText,
+                    onValueChange = { passwordText = it },
+                    label = { Text("Password", fontFamily = InterFontFamily) },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (!loginError.isNullOrBlank()) {
+                    Text(
+                        text = loginError,
+                        fontFamily = InterFontFamily,
+                        fontSize = 12.sp,
+                        color = Color(0xFFDC2626)
+                    )
+                }
+                Button(
+                    onClick = { onLogin(usernameText, passwordText) },
+                    enabled = !isLoggingIn,
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (isLoggingIn) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Log in", fontFamily = InterFontFamily, color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun SettingsDialog(
     currentBaseUrl: String,
-    currentApiKey: String,
     currentAutoSubmit: Boolean,
     onDismiss: () -> Unit,
-    onSave: (String, String, Boolean) -> Unit,
-    onTestConnection: (String, String, (Boolean, String) -> Unit) -> Unit
+    onSave: (String, Boolean) -> Unit,
+    onTestConnection: (String, (Boolean, String) -> Unit) -> Unit
 ) {
     var isAuthenticated by remember { mutableStateOf(false) }
 
@@ -1089,7 +1676,6 @@ private fun SettingsDialog(
 
     // Config state
     var urlText by remember { mutableStateOf(currentBaseUrl) }
-    var apiKeyText by remember { mutableStateOf(currentApiKey) }
     var isAutoSubmitEnabled by remember { mutableStateOf(currentAutoSubmit) }
     var isTesting by remember { mutableStateOf(false) }
     var testResult by remember { mutableStateOf<Pair<Boolean, String>?>(null) }
@@ -1190,7 +1776,7 @@ private fun SettingsDialog(
             onDismissRequest = onDismiss,
             title = {
                 Text(
-                    text = "Kiosk Server & API Settings",
+                    text = "Server settings",
                     fontFamily = InterFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
@@ -1203,7 +1789,7 @@ private fun SettingsDialog(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Configure tenant server URL and API credentials:",
+                        text = "This server holds the merchant list. The Android code then loads that merchant's shop URL.",
                         fontFamily = InterFontFamily,
                         fontSize = 13.sp,
                         color = TextMuted
@@ -1215,8 +1801,8 @@ private fun SettingsDialog(
                             urlText = it
                             testResult = null
                         },
-                        label = { Text("API Base URL", fontFamily = InterFontFamily) },
-                        placeholder = { Text("http://192.168.1.x/ElintOm/ or https://attendance.elintom.com/") },
+                        label = { Text("Merchant directory URL", fontFamily = InterFontFamily) },
+                        placeholder = { Text("https://qa18.elintom.us/", fontFamily = InterFontFamily) },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = BrandPrimary,
@@ -1225,21 +1811,14 @@ private fun SettingsDialog(
                         modifier = Modifier.fillMaxWidth()
                     )
 
-                    OutlinedTextField(
-                        value = apiKeyText,
-                        onValueChange = {
-                            apiKeyText = it
-                            testResult = null
-                        },
-                        label = { Text("API Key (X-API-KEY)", fontFamily = InterFontFamily) },
-                        placeholder = { Text("Enter API key (optional)") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = BrandPrimary,
-                            cursorColor = BrandPrimary
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TextButton(onClick = { urlText = "https://qa18.elintom.us/" }) {
+                            Text("Set Live: qa18.elintom.us", fontFamily = InterFontFamily, fontSize = 11.5.sp, color = BrandPrimary)
+                        }
+                    }
 
                     // Auto-Submit vs Manual Trigger Toggle
                     Surface(
@@ -1292,7 +1871,7 @@ private fun SettingsDialog(
                             onClick = {
                                 isTesting = true
                                 testResult = null
-                                onTestConnection(urlText, apiKeyText) { success, msg ->
+                                onTestConnection(urlText) { success, msg ->
                                     isTesting = false
                                     testResult = Pair(success, msg)
                                 }
@@ -1340,7 +1919,7 @@ private fun SettingsDialog(
             },
             confirmButton = {
                 Button(
-                    onClick = { onSave(urlText, apiKeyText, isAutoSubmitEnabled) },
+                    onClick = { onSave(urlText, isAutoSubmitEnabled) },
                     colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
                 ) {
                     Text("Save", fontFamily = InterFontFamily, color = Color.White)
