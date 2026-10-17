@@ -52,6 +52,37 @@ class AttendancePreferencesRepository(private val context: Context) {
         const val DEFAULT_BASE_URL = "https://qa18.elintom.us/"
     }
 
+    private val fastPrefs = context.getSharedPreferences("attendance_fast_prefs", Context.MODE_PRIVATE)
+
+    fun getFastDeviceToken(): String = fastPrefs.getString("device_token", "") ?: ""
+    fun getFastSetupComplete(): Boolean = fastPrefs.getBoolean("setup_complete", false)
+    fun getFastCompanyCode(): String = fastPrefs.getString("company_code", "") ?: ""
+    fun getFastAndroidCode(): String = fastPrefs.getString("android_code", "") ?: ""
+    fun getFastUserName(): String = fastPrefs.getString("user_name", "") ?: ""
+    fun getFastBaseUrl(): String = fastPrefs.getString("tenant_base_url", DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
+    fun getFastSavedPhone(): String = fastPrefs.getString("last_phone", "") ?: ""
+
+    fun syncFastPrefs(
+        deviceToken: String? = null,
+        setupComplete: Boolean? = null,
+        companyCode: String? = null,
+        androidCode: String? = null,
+        userName: String? = null,
+        baseUrl: String? = null,
+        phone: String? = null
+    ) {
+        fastPrefs.edit().apply {
+            deviceToken?.let { putString("device_token", it) }
+            setupComplete?.let { putBoolean("setup_complete", it) }
+            companyCode?.let { putString("company_code", it) }
+            androidCode?.let { putString("android_code", it) }
+            userName?.let { putString("user_name", it) }
+            baseUrl?.let { putString("tenant_base_url", it) }
+            phone?.let { putString("last_phone", it) }
+            apply()
+        }
+    }
+
     val cachedAttendanceFlow: Flow<CachedAttendanceData> = context.dataStore.data.map { prefs ->
         CachedAttendanceData(
             date = prefs[KEY_CACHED_DATE],
@@ -151,6 +182,12 @@ class AttendancePreferencesRepository(private val context: Context) {
     }
 
     suspend fun saveMerchantSetup(merchantUrl: String, androidCode: String, companyCode: String) {
+        syncFastPrefs(
+            baseUrl = merchantUrl,
+            androidCode = androidCode,
+            companyCode = companyCode,
+            setupComplete = true
+        )
         context.dataStore.edit { prefs ->
             prefs[KEY_TENANT_BASE_URL] = merchantUrl
             prefs[KEY_ANDROID_CODE] = androidCode
@@ -161,6 +198,7 @@ class AttendancePreferencesRepository(private val context: Context) {
     }
 
     suspend fun clearMerchantSetup() {
+        fastPrefs.edit().clear().apply()
         context.dataStore.edit { prefs ->
             val master = prefs[KEY_MASTER_URL] ?: prefs[KEY_TENANT_BASE_URL] ?: DEFAULT_BASE_URL
             prefs[KEY_MASTER_URL] = master
@@ -176,6 +214,11 @@ class AttendancePreferencesRepository(private val context: Context) {
     }
 
     suspend fun setSetupIncomplete() {
+        syncFastPrefs(
+            setupComplete = false,
+            deviceToken = "",
+            userName = ""
+        )
         context.dataStore.edit { prefs ->
             prefs[KEY_SETUP_COMPLETE] = false
             prefs[KEY_DEVICE_TOKEN] = ""
@@ -192,6 +235,14 @@ class AttendancePreferencesRepository(private val context: Context) {
         userName: String,
         phone: String
     ) {
+        syncFastPrefs(
+            baseUrl = baseUrl,
+            companyCode = companyCode,
+            deviceToken = token,
+            userName = userName,
+            phone = phone,
+            setupComplete = true
+        )
         context.dataStore.edit { prefs ->
             prefs[KEY_TENANT_BASE_URL] = baseUrl
             prefs[KEY_COMPANY_CODE] = companyCode
@@ -204,6 +255,10 @@ class AttendancePreferencesRepository(private val context: Context) {
     }
 
     suspend fun clearDeviceLogin() {
+        syncFastPrefs(
+            deviceToken = "",
+            userName = ""
+        )
         context.dataStore.edit { prefs ->
             prefs[KEY_DEVICE_TOKEN] = ""
             prefs[KEY_DEVICE_USER_ID] = ""

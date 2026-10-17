@@ -51,11 +51,15 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.geometry.Offset
@@ -79,6 +83,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.runtime.Composable
 import android.content.Intent
 import android.location.LocationManager
@@ -131,6 +136,7 @@ import com.example.ui.theme.BorderDefault
 import com.example.ui.theme.BorderToggle
 import com.example.ui.theme.BrandActiveTint
 import com.example.ui.theme.BrandPrimary
+import com.example.ui.theme.BrandPrimaryDark
 import com.example.ui.theme.CardBackground
 import com.example.ui.theme.CardBorder
 import com.example.ui.theme.HeaderBackground
@@ -413,19 +419,56 @@ fun AttendanceKioskScreen(
                             )
                         }
 
-                        Text(
-                            text = if (uiState.currentLandmark.isBlank()) {
-                                stringResource(R.string.label_standing_landmark) + ": …"
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (uiState.isLocationLoading || uiState.currentLat == null) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(13.dp),
+                                    strokeWidth = 2.dp,
+                                    color = Color(0xFF006D77)
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.Place,
+                                    contentDescription = "Location",
+                                    tint = Color(0xFF006D77),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Fetching live location...",
+                                    style = TextStyle(
+                                        fontFamily = InterFontFamily,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFF006D77)
+                                    )
+                                )
                             } else {
-                                stringResource(R.string.label_standing_landmark) + ": " + uiState.currentLandmark
-                            },
-                            style = TextStyle(
-                                fontFamily = InterFontFamily,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                color = Color(0xFF006D77)
-                            )
-                        )
+                                Icon(
+                                    imageVector = Icons.Default.Place,
+                                    contentDescription = "Location",
+                                    tint = Color(0xFF006D77),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = if (uiState.currentLandmark.isNotBlank()) {
+                                        stringResource(R.string.label_standing_landmark) + ": " + uiState.currentLandmark
+                                    } else {
+                                        stringResource(R.string.label_standing_landmark) + ": (${uiState.currentLat}, ${uiState.currentLng})"
+                                    },
+                                    style = TextStyle(
+                                        fontFamily = InterFontFamily,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFF006D77)
+                                    ),
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
 
                         ToggleIndicators(
                             activeToggle = uiState.activeToggle,
@@ -639,9 +682,11 @@ fun AttendanceKioskScreen(
             }
 
             // 9) Sticky bottom bar (white, top border #DBE5F1, upward shadow)
+            val isLocationReady = uiState.currentLat != null && uiState.currentLng != null && !uiState.isLocationLoading
             StickyBottomBar(
                 buttonState = uiState.buttonState,
                 isPosting = uiState.isPosting,
+                isLocationReady = isLocationReady,
                 onCaptureClick = { viewModel.onCaptureButtonClicked() }
             )
         }
@@ -725,11 +770,25 @@ fun AttendanceKioskScreen(
             )
         }
 
-        if (uiState.deviceToken.isBlank()) {
+        if (uiState.isBootstrapping && uiState.deviceToken.isBlank()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFFF7FAFB)),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(32.dp),
+                    strokeWidth = 2.5.dp,
+                    color = BrandPrimary
+                )
+            }
+        } else if (uiState.deviceToken.isBlank()) {
             MerchantCodeScreen(
                 androidCode = uiState.androidCode,
                 merchantCode = uiState.companyCode,
                 shopName = uiState.tenantSiteName.orEmpty(),
+                tenantLogoUrl = uiState.tenantLogoUrl,
                 setupComplete = uiState.setupComplete,
                 isSettingUp = uiState.isSettingUp,
                 setupError = uiState.setupError,
@@ -1375,6 +1434,7 @@ private fun NotesSection(
 private fun StickyBottomBar(
     buttonState: AttendanceButtonState,
     isPosting: Boolean,
+    isLocationReady: Boolean,
     onCaptureClick: () -> Unit
 ) {
     Surface(
@@ -1388,9 +1448,10 @@ private fun StickyBottomBar(
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
+            val isEnabled = !isPosting && isLocationReady
             Button(
                 onClick = onCaptureClick,
-                enabled = !isPosting,
+                enabled = isEnabled,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
@@ -1399,26 +1460,43 @@ private fun StickyBottomBar(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFF006D77),
                     contentColor = Color.White,
-                    disabledContainerColor = Color(0xFF006D77).copy(alpha = 0.6f),
-                    disabledContentColor = Color.White.copy(alpha = 0.8f)
+                    disabledContainerColor = Color(0xFF006D77).copy(alpha = 0.5f),
+                    disabledContentColor = Color.White.copy(alpha = 0.75f)
                 ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
             ) {
-                Icon(
-                    imageVector = if (buttonState == AttendanceButtonState.RETAKE) Icons.Default.Refresh else Icons.Default.PhotoCamera,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = buttonState.label,
-                    style = TextStyle(
-                        fontFamily = InterFontFamily,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                if (!isLocationReady && !isPosting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = Color.White.copy(alpha = 0.85f)
                     )
-                )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Waiting for location...",
+                        style = TextStyle(
+                            fontFamily = InterFontFamily,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                } else {
+                    Icon(
+                        imageVector = if (buttonState == AttendanceButtonState.RETAKE) Icons.Default.Refresh else Icons.Default.PhotoCamera,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = buttonState.label,
+                        style = TextStyle(
+                            fontFamily = InterFontFamily,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
             }
         }
     }
@@ -1479,6 +1557,7 @@ private fun MerchantCodeScreen(
     androidCode: String,
     merchantCode: String,
     shopName: String,
+    tenantLogoUrl: String? = null,
     setupComplete: Boolean,
     isSettingUp: Boolean,
     setupError: String?,
@@ -1493,12 +1572,16 @@ private fun MerchantCodeScreen(
     var codeText by remember { mutableStateOf(androidCode) }
     var usernameText by remember { mutableStateOf(savedPhone) }
     var passwordText by remember { mutableStateOf("") }
-    val linked = setupComplete && setupError.isNullOrBlank() && androidCode.isNotBlank() && codeText.trim().equals(androidCode, ignoreCase = true)
+    var passwordVisible by remember { mutableStateOf(false) }
+    val linked = setupComplete && setupError.isNullOrBlank() && androidCode.isNotBlank()
     val scrollState = rememberScrollState()
 
     LaunchedEffect(codeText) {
         val code = codeText.trim()
         if (!code.matches(Regex("^[A-Za-z0-9]{4,64}$"))) {
+            return@LaunchedEffect
+        }
+        if (setupComplete && code.equals(androidCode.trim(), ignoreCase = true)) {
             return@LaunchedEffect
         }
         delay(500)
@@ -1519,141 +1602,345 @@ private fun MerchantCodeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(PageBackground),
-        contentAlignment = Alignment.TopCenter
+            .background(Color(0xFFF7FAFB))
     ) {
+        // Decorative curved ambient shapes matching reference UI
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            // Top-left soft teal curved circle
+            drawCircle(
+                color = Color(0xFFD6F2F4).copy(alpha = 0.55f),
+                radius = size.width * 0.55f,
+                center = Offset(x = 0f, y = 0f)
+            )
+            // Bottom-right soft teal curved circle
+            drawCircle(
+                color = Color(0xFFDCF4F6).copy(alpha = 0.5f),
+                radius = size.width * 0.7f,
+                center = Offset(x = size.width * 1.05f, y = size.height * 0.95f)
+            )
+        }
+
         Column(
             modifier = Modifier
-                .widthIn(max = 420.dp)
-                .fillMaxWidth()
+                .widthIn(max = 440.dp)
+                .fillMaxSize()
                 .statusBarsPadding()
-                .padding(24.dp)
+                .padding(horizontal = 24.dp)
                 .verticalScroll(scrollState),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Merchant Code",
-                    fontFamily = InterFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 22.sp,
-                    color = TextPrimary
-                )
-                IconButton(onClick = onOpenSettings) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Server settings",
-                        tint = TextMuted
-                    )
-                }
-            }
-            Text(
-                text = "Enter the Android unique code saved on the merchant.",
-                fontFamily = InterFontFamily,
-                fontSize = 13.sp,
-                color = TextMuted
-            )
+            Spacer(modifier = Modifier.weight(0.7f, fill = false))
+            Spacer(modifier = Modifier.height(48.dp))
 
-            OutlinedTextField(
-                value = codeText,
-                onValueChange = { codeText = it.uppercase() },
-                label = { Text("Merchant code", fontFamily = InterFontFamily) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-                modifier = Modifier.fillMaxWidth()
-            )
-            if (!isOnline) {
-                Text(
-                    text = "No internet connection. Setup will work when internet is back.",
-                    fontFamily = InterFontFamily,
-                    fontSize = 12.sp,
-                    color = Color(0xFFDC2626)
-                )
-            }
-            if (!setupError.isNullOrBlank()) {
-                Surface(
-                    color = Color(0xFFFEE2E2),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.fillMaxWidth()
+            // Logo from Web App inside pure white background card
+            Surface(
+                modifier = Modifier
+                    .shadow(elevation = 6.dp, shape = RoundedCornerShape(22.dp)),
+                shape = RoundedCornerShape(22.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+            ) {
+                Box(
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = setupError,
-                        fontFamily = InterFontFamily,
-                        fontSize = 13.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFFB91C1C),
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-                    )
-                }
-            }
-            if (isSettingUp && !linked) {
-                Text(
-                    text = "Connecting...",
-                    fontFamily = InterFontFamily,
-                    fontSize = 14.sp,
-                    color = TextMuted
-                )
-            }
-            if (linked) {
-                Text(
-                    text = buildString {
-                        append("Status: Connected")
-                        append("\nCode: ")
-                        append(merchantCode.ifBlank { androidCode })
-                        if (shopName.isNotBlank()) {
-                            append("\n")
-                            append(shopName)
-                        }
-                    },
-                    fontFamily = InterFontFamily,
-                    fontSize = 14.sp,
-                    color = Color(0xFF1D5C32)
-                )
-                OutlinedTextField(
-                    value = usernameText,
-                    onValueChange = { usernameText = it },
-                    label = { Text("Username", fontFamily = InterFontFamily) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = passwordText,
-                    onValueChange = { passwordText = it },
-                    label = { Text("Password", fontFamily = InterFontFamily) },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (!loginError.isNullOrBlank()) {
-                    Text(
-                        text = loginError,
-                        fontFamily = InterFontFamily,
-                        fontSize = 12.sp,
-                        color = Color(0xFFDC2626)
-                    )
-                }
-                Button(
-                    onClick = { onLogin(usernameText, passwordText) },
-                    enabled = !isLoggingIn,
-                    colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    if (isLoggingIn) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(18.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
+                    val logoModifier = Modifier
+                        .height(72.dp)
+                        .widthIn(max = 220.dp)
+
+                    if (!tenantLogoUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(LocalContext.current)
+                                .data(tenantLogoUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = shopName.ifBlank { "ElintOM Logo" },
+                            modifier = logoModifier,
+                            contentScale = ContentScale.Fit,
+                            alignment = Alignment.Center,
+                            error = painterResource(R.drawable.ic_tenant_full_logo),
+                            fallback = painterResource(R.drawable.ic_tenant_full_logo)
                         )
                     } else {
-                        Text("Log in", fontFamily = InterFontFamily, color = Color.White)
+                        Image(
+                            painter = painterResource(R.drawable.ic_tenant_full_logo),
+                            contentDescription = shopName.ifBlank { "ElintOM Logo" },
+                            modifier = logoModifier,
+                            contentScale = ContentScale.Fit,
+                            alignment = Alignment.Center
+                        )
                     }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            if (linked) {
+                // Professional Elevated Login Card
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(elevation = 6.dp, shape = RoundedCornerShape(24.dp)),
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 28.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "Username",
+                                fontFamily = InterFontFamily,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 14.sp,
+                                color = Color(0xFF475569)
+                            )
+                            OutlinedTextField(
+                                value = usernameText,
+                                onValueChange = { usernameText = it },
+                                placeholder = { Text("Username or phone", fontSize = 14.sp, color = Color(0xFF94A3B8)) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = null,
+                                        tint = Color(0xFF94A3B8),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color(0xFFCBD5E1),
+                                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                                    focusedContainerColor = Color(0xFFF8FAFC),
+                                    unfocusedContainerColor = Color(0xFFF8FAFC)
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "Password",
+                                fontFamily = InterFontFamily,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 14.sp,
+                                color = Color(0xFF475569)
+                            )
+                            OutlinedTextField(
+                                value = passwordText,
+                                onValueChange = { passwordText = it },
+                                placeholder = { Text("Password", fontSize = 14.sp, color = Color(0xFF94A3B8)) },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Lock,
+                                        contentDescription = null,
+                                        tint = Color(0xFF94A3B8),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                },
+                                trailingIcon = {
+                                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                        Icon(
+                                            imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                            contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                            tint = Color(0xFF94A3B8),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color(0xFFCBD5E1),
+                                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                                    focusedContainerColor = Color(0xFFF8FAFC),
+                                    unfocusedContainerColor = Color(0xFFF8FAFC)
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        if (!loginError.isNullOrBlank()) {
+                            Surface(
+                                color = Color(0xFFFEF2F2),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Warning,
+                                        contentDescription = null,
+                                        tint = Color(0xFFDC2626),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = loginError,
+                                        fontFamily = InterFontFamily,
+                                        fontSize = 13.sp,
+                                        color = Color(0xFFB91C1C),
+                                        lineHeight = 18.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Rounded Pill Button (matching reference)
+                        Button(
+                            onClick = { onLogin(usernameText, passwordText) },
+                            enabled = !isLoggingIn,
+                            shape = RoundedCornerShape(26.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = BrandPrimary,
+                                disabledContainerColor = BrandPrimary.copy(alpha = 0.6f)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(50.dp)
+                        ) {
+                            if (isLoggingIn) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    color = Color.White,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text(
+                                    text = "Log in",
+                                    fontFamily = InterFontFamily,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 16.sp,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Setup Card for Merchant Code
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(elevation = 6.dp, shape = RoundedCornerShape(24.dp)),
+                    shape = RoundedCornerShape(24.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFF1F5F9))
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 28.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "Merchant Code",
+                                fontFamily = InterFontFamily,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 14.sp,
+                                color = Color(0xFF475569)
+                            )
+                            OutlinedTextField(
+                                value = codeText,
+                                onValueChange = { codeText = it.uppercase() },
+                                placeholder = { Text("e.g. LH02", fontSize = 14.sp, color = Color(0xFF94A3B8)) },
+                                singleLine = true,
+                                shape = RoundedCornerShape(12.dp),
+                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color(0xFFCBD5E1),
+                                    unfocusedBorderColor = Color(0xFFE2E8F0),
+                                    focusedContainerColor = Color(0xFFF8FAFC),
+                                    unfocusedContainerColor = Color(0xFFF8FAFC)
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+
+                        if (!isOnline) {
+                            Text(
+                                text = "No internet connection. Setup will work when internet is back.",
+                                fontFamily = InterFontFamily,
+                                fontSize = 12.sp,
+                                color = Color(0xFFDC2626)
+                            )
+                        }
+                        if (!setupError.isNullOrBlank()) {
+                            Surface(
+                                color = Color(0xFFFEF2F2),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = setupError,
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFFB91C1C),
+                                    modifier = Modifier.padding(12.dp)
+                                )
+                            }
+                        }
+                        if (isSettingUp) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    color = BrandPrimary,
+                                    strokeWidth = 2.dp
+                                )
+                                Text(
+                                    text = "Connecting to merchant...",
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 13.sp,
+                                    color = BrandPrimary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f, fill = false))
+            Spacer(modifier = Modifier.height(48.dp))
+
+            // Powered by ElintOM Footer matching reference
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(bottom = 28.dp)
+            ) {
+                Text(
+                    text = "Powered by ",
+                    fontFamily = InterFontFamily,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = Color(0xFF64748B)
+                )
+                Text(
+                    text = "ElintOM",
+                    fontFamily = InterFontFamily,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF334155)
+                )
             }
         }
     }

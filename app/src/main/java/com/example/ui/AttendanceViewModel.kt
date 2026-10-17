@@ -77,6 +77,7 @@ data class AttendanceUiState(
     val currentLat: Double? = null,
     val currentLng: Double? = null,
     val currentLandmark: String = "",
+    val isLocationLoading: Boolean = true,
     val isPosting: Boolean = false,
     val showSettingsDialog: Boolean = false,
     val capturedBitmap: Bitmap? = null,
@@ -86,7 +87,8 @@ data class AttendanceUiState(
     val locationAllowed: Boolean = true,
     val gpsEnabled: Boolean = true,
     val waitingToSend: Boolean = false,
-    val areaTracking: Boolean = false
+    val areaTracking: Boolean = false,
+    val isBootstrapping: Boolean = true
 )
 
 class AttendanceViewModel(application: Application) : AndroidViewModel(application) {
@@ -97,7 +99,19 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     val preferencesRepository = AttendancePreferencesRepository(application)
     val locationHelper = LocationHelper(application, networkClientManager.nominatimService)
 
-    private val _uiState = MutableStateFlow(AttendanceUiState())
+    private val _uiState = MutableStateFlow(
+        AttendanceUiState(
+            baseUrl = preferencesRepository.getFastBaseUrl(),
+            masterUrl = preferencesRepository.getFastBaseUrl(),
+            companyCode = preferencesRepository.getFastCompanyCode(),
+            androidCode = preferencesRepository.getFastAndroidCode(),
+            setupComplete = preferencesRepository.getFastSetupComplete(),
+            deviceToken = preferencesRepository.getFastDeviceToken(),
+            loggedInUserName = preferencesRepository.getFastUserName(),
+            savedPhone = preferencesRepository.getFastSavedPhone(),
+            isBootstrapping = true
+        )
+    )
     val uiState: StateFlow<AttendanceUiState> = _uiState.asStateFlow()
 
     private val descriptorBuffer = Collections.synchronizedList(mutableListOf<List<Float>>())
@@ -153,6 +167,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
     init {
         shutterSound.load(MediaActionSound.SHUTTER_CLICK)
+        networkClientManager.currentDeviceToken = preferencesRepository.getFastDeviceToken()
         _uiState.update { it.copy(isOnline = networkClientManager.isOnline()) }
         val request = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -173,7 +188,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 cameraAllowed = cameraAllowed,
                 locationAllowed = locationAllowed,
                 gpsEnabled = gpsEnabled,
-                isCameraFailed = if (!cameraAllowed) true else it.isCameraFailed
+                isCameraFailed = if (!cameraAllowed) true else it.isCameraFailed,
+                isLocationLoading = if (!locationAllowed || !gpsEnabled) false else it.isLocationLoading
             )
         }
     }
@@ -196,6 +212,15 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             val userName = preferencesRepository.deviceUserNameFlow.first()
             val savedPhone = preferencesRepository.lastPhoneFlow.first()
             val autoSubmit = preferencesRepository.autoSubmitFlow.first()
+            preferencesRepository.syncFastPrefs(
+                baseUrl = base,
+                companyCode = companyCode,
+                androidCode = androidCode,
+                setupComplete = setupComplete,
+                deviceToken = deviceToken,
+                userName = userName,
+                phone = savedPhone
+            )
             networkClientManager.currentDeviceToken = deviceToken
             _uiState.update {
                 it.copy(
@@ -207,7 +232,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     deviceToken = deviceToken,
                     loggedInUserName = userName,
                     savedPhone = savedPhone,
-                    isAutoSubmitEnabled = autoSubmit
+                    isAutoSubmitEnabled = autoSubmit,
+                    isBootstrapping = false
                 )
             }
 
@@ -230,9 +256,11 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 }
             }
 
-            // Fetch branding only after this phone has a device session.
-            if (deviceToken.isNotBlank()) {
+            // Fetch branding from webapp whenever base is available
+            if (base.isNotBlank()) {
                 fetchCapturedPage(base)
+            }
+            if (deviceToken.isNotBlank()) {
                 cachedSites = parseSites(preferencesRepository.readCachedSites())
                 val queued = preferencesRepository.readOfflineQueue()
                 val hasQueue = queued.isNotBlank() && queued != "[]"
@@ -343,6 +371,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                             tenantSiteName = body?.name?.trim()?.takeIf { name -> name.isNotEmpty() } ?: it.tenantSiteName
                         )
                     }
+                    fetchCapturedPage(base)
                 } else {
                     val errorBodyMsg = try {
                         val err = response.errorBody()?.string()
@@ -603,19 +632,24 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
     /** Fresh GPS plus the street landmark for where the device is actually standing. */
     private suspend fun refreshStandingLocation(): StandingFix? {
-        val loc = locationHelper.getLocation().getOrNull() ?: return null
-        val landmark = locationHelper.reverseGeocode(loc.latitude, loc.longitude)
-        if (landmark.isNotBlank()) {
-            lastAccurateFixAt = System.currentTimeMillis()
+        _uiState.update { it.copy(isLocationLoading = true) }
+        try {
+            val loc = locationHelper.getLocation().getOrNull() ?: return null
+            val landmark = locationHelper.reverseGeocode(loc.latitude, loc.longitude)
+            if (landmark.isNotBlank()) {
+                lastAccurateFixAt = System.currentTimeMillis()
+            }
+            _uiState.update {
+                it.copy(
+                    currentLat = loc.latitude,
+                    currentLng = loc.longitude,
+                    currentLandmark = landmark
+                )
+            }
+            return StandingFix(loc.latitude, loc.longitude, landmark)
+        } finally {
+            _uiState.update { it.copy(isLocationLoading = false) }
         }
-        _uiState.update {
-            it.copy(
-                currentLat = loc.latitude,
-                currentLng = loc.longitude,
-                currentLandmark = landmark
-            )
-        }
-        return StandingFix(loc.latitude, loc.longitude, landmark)
     }
 
     /** A fix already accepted in the last 45s. Avoids another 15s GPS wait on every capture. */
@@ -715,7 +749,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         // buffer has 3 samples -> after 4 consecutive good ticks call store, then cooldown 5 s.
         val state = _uiState.value
         val cooldownPassed = (now - lastSubmitTime) >= 5000L
-        val hasCoords = state.currentLat != null && state.currentLng != null
+        val hasCoords = state.currentLat != null && state.currentLng != null && !state.isLocationLoading
         val locationReady = !state.showLocationPicker || state.selectedLocation != null
         val bufferReady = descriptorBuffer.size >= 4
 
@@ -858,6 +892,11 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         val state = _uiState.value
         if (state.isPosting) return
 
+        if (state.currentLat == null || state.currentLng == null || state.isLocationLoading) {
+            showToast(ToastType.INFO, "Acquiring location. Please wait...", 2500L)
+            return
+        }
+
         if (state.capturedBitmap != null || !state.isCameraActive || state.buttonState == AttendanceButtonState.RETAKE) {
             resetCapturedJob?.cancel()
             _uiState.update {
@@ -939,10 +978,18 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
         val knownLat = state.currentLat ?: return
         val knownLng = state.currentLng ?: return
-        val knownLandmark = state.currentLandmark
+        var knownLandmark = state.currentLandmark
 
         viewModelScope.launch {
             try {
+                if (knownLandmark.isBlank()) {
+                    val resolved = locationHelper.reverseGeocode(knownLat, knownLng)
+                    if (resolved.isNotBlank()) {
+                        knownLandmark = resolved
+                        _uiState.update { it.copy(currentLandmark = resolved) }
+                    }
+                }
+
                 val avgDescriptor = averageDescriptors(validDescriptors)
                 val descriptorJson = formatDescriptorJson(avgDescriptor)
 

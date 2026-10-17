@@ -5,6 +5,9 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
+import android.location.Address
+import android.location.Geocoder
+import android.os.Build
 import android.os.HandlerThread
 import android.os.Looper
 import androidx.core.content.ContextCompat
@@ -16,9 +19,12 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.coroutines.resume
@@ -27,8 +33,8 @@ import kotlin.coroutines.resumeWithException
 /** Stop waiting once GPS is this tight. */
 private const val TARGET_ACCURACY_METERS = 20f
 
-/** A coarser fix than this can place a Pune device on a Mumbai site. Reject it. */
-private const val MAX_ACCEPTED_ACCURACY_METERS = 80f
+/** Allow up to 120m for indoor kiosks/receptions where satellite GPS is partially obstructed. */
+private const val MAX_ACCEPTED_ACCURACY_METERS = 120f
 
 private const val ACCURATE_FIX_TIMEOUT_MS = 15_000L
 
@@ -81,6 +87,47 @@ internal fun formatLandmark(parts: LandmarkParts): String {
         .filter { it.isNotBlank() }
         .take(2)
         .joinToString(", ")
+}
+
+/**
+ * Format landmark from native Android Geocoder (backed by Google Maps).
+ * Prioritizes: Landmark/Premises -> Street Address -> Sublocality/Locality.
+ */
+internal fun formatAddressLandmark(address: Address): String {
+    val feature = address.featureName?.trim().orEmpty()
+    val premises = address.premises?.trim().orEmpty()
+    val street = listOf(address.subThoroughfare?.trim().orEmpty(), address.thoroughfare?.trim().orEmpty())
+        .filter { it.isNotBlank() }
+        .joinToString(" ")
+    val subLocality = address.subLocality?.trim().orEmpty()
+    val locality = address.locality?.trim().orEmpty()
+
+    val isPlusCode = feature.contains("+") || feature.matches(Regex("^[A-Z0-9]{4,8}\\+[A-Z0-9]{2,4}$"))
+    val place = when {
+        premises.isNotBlank() -> premises
+        feature.isNotBlank() && !feature.equals(street, ignoreCase = true) && !feature.matches(Regex("^[0-9\\-]+$")) && !isPlusCode -> feature
+        else -> ""
+    }
+
+    val area = subLocality.ifBlank { locality }
+    val parts = listOf(place, street, area)
+        .filter { it.isNotBlank() }
+        .distinctBy { it.lowercase() }
+        .take(3)
+
+    if (parts.isNotEmpty()) {
+        return parts.joinToString(", ")
+    }
+
+    val line = address.getAddressLine(0) ?: ""
+    if (line.isNotBlank()) {
+        return line.split(",")
+            .map { it.trim() }
+            .filter { it.isNotBlank() && !it.contains("+") }
+            .take(3)
+            .joinToString(", ")
+    }
+    return ""
 }
 
 class LocationHelper(
@@ -182,6 +229,47 @@ class LocationHelper(
     }
 
     suspend fun reverseGeocode(latitude: Double, longitude: Double): String {
+        // 1. Try native Android Geocoder (Google Play Services backed, accurate for India)
+        val nativeLandmark = reverseGeocodeNative(latitude, longitude)
+        if (nativeLandmark.isNotBlank()) {
+            return nativeLandmark
+        }
+
+        // 2. Fallback to OpenStreetMap Nominatim
+        return reverseGeocodeNominatim(latitude, longitude)
+    }
+
+    private suspend fun reverseGeocodeNative(latitude: Double, longitude: Double): String {
+        return withContext(Dispatchers.IO) {
+            try {
+                if (!Geocoder.isPresent()) return@withContext ""
+                val geocoder = Geocoder(context, Locale.getDefault())
+                val addresses: List<Address> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    suspendCancellableCoroutine { cont ->
+                        geocoder.getFromLocation(latitude, longitude, 1, object : Geocoder.GeocodeListener {
+                            override fun onGeocode(addresses: MutableList<Address>) {
+                                if (cont.isActive) cont.resume(addresses)
+                            }
+
+                            override fun onError(errorMessage: String?) {
+                                if (cont.isActive) cont.resume(emptyList())
+                            }
+                        })
+                    }
+                } else {
+                    @Suppress("DEPRECATION")
+                    geocoder.getFromLocation(latitude, longitude, 1) ?: emptyList()
+                }
+
+                val address = addresses.firstOrNull() ?: return@withContext ""
+                formatAddressLandmark(address)
+            } catch (e: Exception) {
+                ""
+            }
+        }
+    }
+
+    private suspend fun reverseGeocodeNominatim(latitude: Double, longitude: Double): String {
         return try {
             val response = nominatimService.reverseGeocode(
                 lat = latitude,
