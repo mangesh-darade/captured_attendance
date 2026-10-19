@@ -1,8 +1,13 @@
 package com.example.ui
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -68,6 +73,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -405,6 +411,7 @@ fun AttendanceKioskScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showProfile by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
+    var showDiagnosticsDialog by remember { mutableStateOf(false) }
 
     val currentLanguage = uiState.appLanguage
     val locale = remember(currentLanguage) {
@@ -922,7 +929,11 @@ fun AttendanceKioskScreen(
                 currentAutoSubmit = uiState.isAutoSubmitEnabled,
                 onDismiss = { viewModel.dismissSettingsDialog() },
                 onSave = { url, autoSubmit -> viewModel.updateSettings(url, autoSubmit) },
-                onTestConnection = { url, cb -> viewModel.testConnection(url, cb) }
+                onTestConnection = { url, cb -> viewModel.testConnection(url, cb) },
+                onViewLogs = {
+                    viewModel.dismissSettingsDialog()
+                    showDiagnosticsDialog = true
+                }
             )
         }
 
@@ -1006,7 +1017,87 @@ fun AttendanceKioskScreen(
                 isOnline = uiState.isOnline,
                 onOpenSettings = { viewModel.onSettingsClicked() },
                 onSetup = { code -> viewModel.setupWithAndroidCode("", code) },
-                onLogin = { phone, password -> viewModel.login(phone, password) }
+                onLogin = { phone, password -> viewModel.login(phone, password) },
+                onViewLogs = { showDiagnosticsDialog = true }
+            )
+        }
+
+        if (showDiagnosticsDialog) {
+            var logText by remember { mutableStateOf(viewModel.getDiagnosticLogs()) }
+            val logPath = remember { viewModel.getDiagnosticLogPath() }
+
+            AlertDialog(
+                onDismissRequest = { showDiagnosticsDialog = false },
+                title = {
+                    Text(
+                        text = "App Error & Diagnostic Logs",
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = Color(0xFF0F172A)
+                    )
+                },
+                text = {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 380.dp)
+                    ) {
+                        Text(
+                            text = "Log File: $logPath",
+                            fontSize = 10.sp,
+                            color = Color(0xFF64748B),
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f, fill = false),
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF0F172A),
+                            border = BorderStroke(1.dp, Color(0xFF334155))
+                        ) {
+                            val scrollState = rememberScrollState()
+                            Text(
+                                text = logText.ifBlank { "No errors recorded yet." },
+                                color = Color(0xFFE2E8F0),
+                                fontSize = 10.sp,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier
+                                    .padding(10.dp)
+                                    .verticalScroll(scrollState)
+                            )
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = ClipData.newPlainText("ElintOM Error Logs", logText)
+                            clipboard.setPrimaryClip(clip)
+                            viewModel.showToast(ToastType.SUCCESS, "Log copied to clipboard!", 2500L)
+                        }
+                    ) {
+                        Text("Copy Log", fontFamily = InterFontFamily, fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    Row {
+                        TextButton(
+                            onClick = {
+                                viewModel.clearDiagnosticLogs()
+                                logText = viewModel.getDiagnosticLogs()
+                            }
+                        ) {
+                            Text("Clear", color = Color(0xFFDC2626), fontFamily = InterFontFamily)
+                        }
+                        TextButton(onClick = { showDiagnosticsDialog = false }) {
+                            Text("Close", fontFamily = InterFontFamily)
+                        }
+                    }
+                }
             )
         }
     }
@@ -1889,7 +1980,8 @@ private fun MerchantCodeScreen(
     isOnline: Boolean,
     onOpenSettings: () -> Unit,
     onSetup: (String) -> Unit,
-    onLogin: (String, String) -> Unit
+    onLogin: (String, String) -> Unit,
+    onViewLogs: (() -> Unit)? = null
 ) {
     var codeText by remember { mutableStateOf(androidCode) }
     var usernameText by remember { mutableStateOf(savedPhone) }
@@ -2208,14 +2300,33 @@ private fun MerchantCodeScreen(
                                 border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(
-                                    text = setupError,
-                                    fontFamily = InterFontFamily,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color(0xFFB91C1C),
-                                    modifier = Modifier.padding(12.dp)
-                                )
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        text = setupError,
+                                        fontFamily = InterFontFamily,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFFB91C1C)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End
+                                    ) {
+                                        TextButton(
+                                            onClick = { onViewLogs?.invoke() },
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "View Error Logs / तपशील पहा",
+                                                fontFamily = InterFontFamily,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Color(0xFFB91C1C)
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                         if (isSettingUp) {
@@ -2274,7 +2385,8 @@ private fun SettingsDialog(
     currentAutoSubmit: Boolean,
     onDismiss: () -> Unit,
     onSave: (String, Boolean) -> Unit,
-    onTestConnection: (String, (Boolean, String) -> Unit) -> Unit
+    onTestConnection: (String, (Boolean, String) -> Unit) -> Unit,
+    onViewLogs: (() -> Unit)? = null
 ) {
     var isAuthenticated by remember { mutableStateOf(false) }
 
@@ -2523,6 +2635,19 @@ private fun SettingsDialog(
                                 fontWeight = FontWeight.Medium
                             )
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+                    OutlinedButton(
+                        onClick = { onViewLogs?.invoke() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "View Error Logs / त्रुटी तपशील",
+                            fontSize = 12.sp,
+                            fontFamily = InterFontFamily,
+                            color = Color(0xFF334155)
+                        )
                     }
                 }
             },

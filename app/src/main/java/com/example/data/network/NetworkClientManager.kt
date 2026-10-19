@@ -8,6 +8,7 @@ import com.example.data.model.DeriveLocationPreviewResponse
 import com.example.data.model.StoreAttendanceResponse
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import com.example.data.util.AppLogger
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import org.json.JSONObject
@@ -70,10 +71,39 @@ class NetworkClientManager(private val context: Context) {
         chain.proceed(builder.build())
     }
 
+    private val fileLoggingInterceptor = okhttp3.Interceptor { chain ->
+        val request = chain.request()
+        val startNs = System.nanoTime()
+        val response = try {
+            chain.proceed(request)
+        } catch (e: Exception) {
+            val durationMs = (System.nanoTime() - startNs) / 1_000_000
+            AppLogger.e("Network", "FAILED: ${request.method} ${request.url} (${durationMs}ms): ${e.message}", e)
+            throw e
+        }
+        val durationMs = (System.nanoTime() - startNs) / 1_000_000
+        if (!response.isSuccessful) {
+            val peeked = try {
+                response.peekBody(1024 * 4).string()
+            } catch (_: Exception) { null }
+            AppLogger.logHttpError(
+                url = request.url.toString(),
+                method = request.method,
+                statusCode = response.code,
+                responseBody = peeked,
+                durationMs = durationMs
+            )
+        } else {
+            AppLogger.i("Network", "SUCCESS: ${request.method} ${request.url} -> HTTP ${response.code} (${durationMs}ms)")
+        }
+        response
+    }
+
     val okHttpClient = OkHttpClient.Builder()
         .cookieJar(cookieJar)
         .addInterceptor(authInterceptor)
         .addInterceptor(loggingInterceptor)
+        .addInterceptor(fileLoggingInterceptor)
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(20, TimeUnit.SECONDS)
         .writeTimeout(20, TimeUnit.SECONDS)

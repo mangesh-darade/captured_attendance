@@ -17,6 +17,7 @@ import com.example.data.model.StoreAttendanceResponse
 import com.example.data.model.ToastMessage
 import com.example.data.model.ToastType
 import com.example.data.network.NetworkClientManager
+import com.example.data.util.AppLogger
 import com.example.face.FaceDetectionResult
 import com.example.location.AreaTrackService
 import com.example.location.AreaTrackStore
@@ -393,6 +394,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         } else null
                     } catch (e: Exception) { null }
                     val message = body?.message ?: errorBodyMsg ?: "Android code was not found (HTTP ${response.code()})"
+                    AppLogger.e("Setup", "Setup failed for code '$code' at URL '${master}attendance_api/setup' -> HTTP ${response.code()}: $message")
                     preferencesRepository.setSetupIncomplete()
                     _uiState.update {
                         it.copy(
@@ -403,6 +405,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     }
                 }
             } catch (e: Exception) {
+                AppLogger.e("Setup", "Setup network exception for code '$code' at master '$master': ${e.message}", e)
                 val raw = e.localizedMessage.orEmpty()
                 val message = if (raw.contains("failed to connect", ignoreCase = true) || raw.contains("timeout", ignoreCase = true)) {
                     "Server did not respond. Check the server URL."
@@ -1030,9 +1033,11 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 if (response.isSuccessful) {
                     val body = response.body()
                     if (body != null && body.status.equals("success", ignoreCase = true)) {
+                        AppLogger.i("AttendanceStore", "Attendance punch successful: ${body.message}")
                         handleStoreSuccess(body)
                     } else {
                         val errMsg = body?.message ?: "Could not mark attendance."
+                        AppLogger.w("AttendanceStore", "Attendance punch rejected: $errMsg")
                         handleStoreError(errMsg)
                     }
                 } else {
@@ -1049,12 +1054,14 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                             else -> "Server error (HTTP ${response.code()})"
                         }
                     }
+                    AppLogger.e("AttendanceStore", "Attendance punch failed HTTP ${response.code()}: $parsedMsg. Raw response: $errBody")
                     handleStoreError(parsedMsg)
                     if (response.code() == 401) {
                         logout()
                     }
                 }
             } catch (e: Exception) {
+                AppLogger.e("AttendanceStore", "Attendance punch exception: ${e.message}", e)
                 e.printStackTrace()
                 lastSubmitTime = System.currentTimeMillis()
                 val offline = e is java.net.ConnectException ||
@@ -1511,4 +1518,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         toastDismissJob?.cancel()
         _uiState.update { it.copy(toast = null) }
     }
+
+    fun getDiagnosticLogs(): String = AppLogger.getRecentLogs(150)
+
+    fun getDiagnosticLogPath(): String = AppLogger.getLogFilePath()
+
+    fun clearDiagnosticLogs() = AppLogger.clearLogs()
 }
