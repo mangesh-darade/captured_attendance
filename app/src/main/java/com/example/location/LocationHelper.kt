@@ -20,6 +20,7 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -94,64 +95,58 @@ internal fun formatLandmark(parts: LandmarkParts): String {
  * Prioritizes: Landmark/Premises -> Street Address -> Sublocality/Locality.
  */
 internal fun formatAddressLandmark(address: Address): String {
+    val addressLine = address.getAddressLine(0)?.trim().orEmpty()
     val feature = address.featureName?.trim().orEmpty()
     val premises = address.premises?.trim().orEmpty()
     val subThoroughfare = address.subThoroughfare?.trim().orEmpty()
     val thoroughfare = address.thoroughfare?.trim().orEmpty()
     val subLocality = address.subLocality?.trim().orEmpty()
     val locality = address.locality?.trim().orEmpty()
-    val addressLine = address.getAddressLine(0)?.trim().orEmpty()
 
-    // Extract road/lane from addressLine if thoroughfare is empty (common in India Google Geocoder)
-    val streetFromLine: String = if (thoroughfare.isBlank() && addressLine.isNotBlank()) {
-        val tokens = addressLine.split(",")
+    val isPlusCode: (String) -> Boolean = { s ->
+        s.contains("+") || s.matches(Regex("^[A-Z0-9]{4,8}\\+[A-Z0-9]{2,4}$"))
+    }
+
+    if (addressLine.isNotBlank()) {
+        // In India, Google Maps Geocoder formats addressLine(0) starting with finest components:
+        // [House/Plot/Building No], [Society/Colony/Lane], [Locality], [City], [State Pincode], [Country]
+        val cleanTokens = addressLine.split(",")
             .map { it.trim() }
             .filter { token ->
                 token.isNotBlank() &&
-                !token.contains("+") &&
+                !isPlusCode(token) &&
                 !token.matches(Regex(".*\\b\\d{6}\\b.*")) &&
                 !token.equals("India", ignoreCase = true) &&
-                !token.equals("Maharashtra", ignoreCase = true) &&
-                !token.equals(subLocality, ignoreCase = true) &&
-                !token.equals(locality, ignoreCase = true)
+                !token.equals("Maharashtra", ignoreCase = true)
             }
-        tokens.firstOrNull { token ->
-            listOf("lane", "road", "rd", "galli", "wadi", "chowk", "nagar", "colony", "society", "street")
-                .any { token.contains(it, ignoreCase = true) }
-        } ?: tokens.firstOrNull().orEmpty()
-    } else {
-        ""
+
+        // Drop city from the end if we already have 2+ local specific tokens (e.g. drop "Pune" if we have ["97/204", "Ujavi Bhusari Colony", "Kothrud", "Pune"])
+        val city = locality.ifBlank { address.adminArea.orEmpty() }
+        val filteredTokens = if (cleanTokens.size > 2 && city.isNotBlank() && cleanTokens.last().equals(city, ignoreCase = true)) {
+            cleanTokens.dropLast(1)
+        } else {
+            cleanTokens
+        }
+
+        if (filteredTokens.isNotEmpty()) {
+            return filteredTokens.take(3).joinToString(", ")
+        }
     }
 
-    val street = listOf(subThoroughfare, thoroughfare.ifBlank { streetFromLine })
-        .filter { it.isNotBlank() }
-        .joinToString(" ")
-
-    val isPlusCode = feature.contains("+") || feature.matches(Regex("^[A-Z0-9]{4,8}\\+[A-Z0-9]{2,4}$"))
+    // Fallback using structured Address fields if addressLine is empty
     val place = when {
         premises.isNotBlank() -> premises
-        feature.isNotBlank() && !feature.equals(street, ignoreCase = true) && !feature.matches(Regex("^[0-9\\-]+$")) && !isPlusCode -> feature
+        feature.isNotBlank() && !isPlusCode(feature) && !feature.equals(thoroughfare, ignoreCase = true) -> feature
         else -> ""
     }
-
+    val street = listOf(subThoroughfare, thoroughfare).filter { it.isNotBlank() }.joinToString(" ")
     val area = subLocality.ifBlank { locality }
     val parts = listOf(place, street, area)
         .filter { it.isNotBlank() }
         .distinctBy { it.lowercase() }
         .take(3)
 
-    if (parts.isNotEmpty()) {
-        return parts.joinToString(", ")
-    }
-
-    if (addressLine.isNotBlank()) {
-        return addressLine.split(",")
-            .map { it.trim() }
-            .filter { it.isNotBlank() && !it.contains("+") }
-            .take(3)
-            .joinToString(", ")
-    }
-    return ""
+    return if (parts.isNotEmpty()) parts.joinToString(", ") else ""
 }
 
 class LocationHelper(
@@ -252,48 +247,94 @@ class LocationHelper(
         }
     }
 
-    suspend fun reverseGeocode(latitude: Double, longitude: Double): String {
-        // 1. Query Nominatim (OSM provides hyper-local road & lane numbers like "Lane Number 16")
-        val nominatimLandmark = reverseGeocodeNominatim(latitude, longitude)
-        val nominatimHasDetailedRoad = nominatimLandmark.contains(",") ||
-            listOf("lane", "road", "rd", "galli", "wadi", "chowk", "nagar", "colony", "society")
-                .any { nominatimLandmark.contains(it, ignoreCase = true) }
+    private var lastCachedLat: Double? = null
+    private var lastCachedLng: Double? = null
+    private var lastCachedLandmark: String = ""
+    private var lastCachedIsFallback: Boolean = false
 
-        if (nominatimHasDetailedRoad) {
+    suspend fun reverseGeocode(latitude: Double, longitude: Double): String {
+        val cachedLat = lastCachedLat
+        val cachedLng = lastCachedLng
+        val cachedLandmark = lastCachedLandmark
+
+        // Fast-path: Reuse recent HIGH-QUALITY (non-fallback) landmark if standing within 20m
+        if (!lastCachedIsFallback && cachedLat != null && cachedLng != null && cachedLandmark.isNotBlank()) {
+            val dist = distanceMeters(latitude, longitude, cachedLat, cachedLng)
+            if (dist <= 20.0) {
+                return cachedLandmark
+            }
+        }
+
+        // 1. Primary: Native Android Geocoder (Google Play Services - best for Indian societies/buildings)
+        val nativeLandmark = reverseGeocodeNative(latitude, longitude)
+        if (nativeLandmark.isNotBlank()) {
+            lastCachedLat = latitude
+            lastCachedLng = longitude
+            lastCachedLandmark = nativeLandmark
+            lastCachedIsFallback = false
+            return nativeLandmark
+        }
+
+        // If native geocoder failed this instant, but we have an existing high-quality cached landmark within 20m, reuse it
+        if (!lastCachedIsFallback && cachedLat != null && cachedLng != null && cachedLandmark.isNotBlank()) {
+            val dist = distanceMeters(latitude, longitude, cachedLat, cachedLng)
+            if (dist <= 20.0) {
+                return cachedLandmark
+            }
+        }
+
+        // 2. Fallback: Query Nominatim if native geocoder is unavailable or returned blank
+        val nominatimLandmark = reverseGeocodeNominatim(latitude, longitude)
+        if (nominatimLandmark.isNotBlank()) {
+            lastCachedLat = latitude
+            lastCachedLng = longitude
+            lastCachedLandmark = nominatimLandmark
+            lastCachedIsFallback = true
             return nominatimLandmark
         }
 
-        // 2. Query native Android Geocoder (Google Play Services)
-        val nativeLandmark = reverseGeocodeNative(latitude, longitude)
-        val nativeHasDetailedRoad = nativeLandmark.contains(",") ||
-            listOf("lane", "road", "rd", "galli", "wadi", "chowk", "nagar", "colony", "society")
-                .any { nativeLandmark.contains(it, ignoreCase = true) }
+        return cachedLandmark
+    }
 
-        return when {
-            nativeHasDetailedRoad -> nativeLandmark
-            nominatimLandmark.isNotBlank() -> nominatimLandmark
-            nativeLandmark.isNotBlank() -> nativeLandmark
-            else -> ""
-        }
+    private fun distanceMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6371000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return r * c
     }
 
     private suspend fun reverseGeocodeNative(latitude: Double, longitude: Double): String {
+        val first = reverseGeocodeNativeSingle(latitude, longitude)
+        if (first.isNotBlank()) return first
+
+        // Short retry (350ms) to withstand transient Google Play Geocoder socket / throttling hiccups
+        delay(350L)
+        return reverseGeocodeNativeSingle(latitude, longitude)
+    }
+
+    private suspend fun reverseGeocodeNativeSingle(latitude: Double, longitude: Double): String {
         return withContext(Dispatchers.IO) {
             try {
                 if (!Geocoder.isPresent()) return@withContext ""
                 val geocoder = Geocoder(context, Locale.getDefault())
                 val addresses: List<Address> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    suspendCancellableCoroutine { cont ->
-                        geocoder.getFromLocation(latitude, longitude, 1, object : Geocoder.GeocodeListener {
-                            override fun onGeocode(addresses: MutableList<Address>) {
-                                if (cont.isActive) cont.resume(addresses)
-                            }
+                    withTimeoutOrNull(3_500L) {
+                        suspendCancellableCoroutine { cont ->
+                            geocoder.getFromLocation(latitude, longitude, 1, object : Geocoder.GeocodeListener {
+                                override fun onGeocode(addresses: MutableList<Address>) {
+                                    if (cont.isActive) cont.resume(addresses)
+                                }
 
-                            override fun onError(errorMessage: String?) {
-                                if (cont.isActive) cont.resume(emptyList())
-                            }
-                        })
-                    }
+                                override fun onError(errorMessage: String?) {
+                                    if (cont.isActive) cont.resume(emptyList())
+                                }
+                            })
+                        }
+                    } ?: emptyList()
                 } else {
                     @Suppress("DEPRECATION")
                     geocoder.getFromLocation(latitude, longitude, 1) ?: emptyList()

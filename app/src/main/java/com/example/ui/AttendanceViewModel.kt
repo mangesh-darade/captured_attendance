@@ -81,7 +81,7 @@ data class AttendanceUiState(
     val isPosting: Boolean = false,
     val showSettingsDialog: Boolean = false,
     val capturedBitmap: Bitmap? = null,
-    val isAutoSubmitEnabled: Boolean = true,
+    val isAutoSubmitEnabled: Boolean = false,
     val isOnline: Boolean = true,
     val cameraAllowed: Boolean = true,
     val locationAllowed: Boolean = true,
@@ -294,7 +294,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun updateSettings(newUrl: String, autoSubmit: Boolean = true) {
+    fun updateSettings(newUrl: String, autoSubmit: Boolean = false) {
         viewModelScope.launch {
             val sanitized = networkClientManager.baseUrlFromCompanyCode(newUrl)
             val urlChanged = sanitized != networkClientManager.sanitizeBaseUrl(_uiState.value.masterUrl)
@@ -357,8 +357,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 if (response.isSuccessful && body?.status.equals("success", ignoreCase = true) && merchantUrl.isNotEmpty()) {
                     val base = networkClientManager.sanitizeBaseUrl(merchantUrl)
                     val companyCode = body?.code?.trim().orEmpty()
-                    preferencesRepository.saveMasterUrl(base, _uiState.value.isAutoSubmitEnabled)
+                    preferencesRepository.saveMasterUrl(base, false)
                     preferencesRepository.saveMerchantSetup(base, code, companyCode)
+                    preferencesRepository.setAutoSubmit(false)
                     _uiState.update {
                         it.copy(
                             isSettingUp = false,
@@ -368,6 +369,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                             masterUrl = base,
                             baseUrl = base,
                             companyCode = companyCode,
+                            isAutoSubmitEnabled = false,
                             tenantSiteName = body?.name?.trim()?.takeIf { name -> name.isNotEmpty() } ?: it.tenantSiteName
                         )
                     }
@@ -452,6 +454,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 if (response.isSuccessful && body?.status.equals("success", ignoreCase = true) && token.isNotEmpty()) {
                     val name = body?.userName?.trim().orEmpty()
                     preferencesRepository.saveDeviceLogin(base, companyCode, token, body?.userId ?: 0, name, phoneValue)
+                    preferencesRepository.setAutoSubmit(false)
                     networkClientManager.currentDeviceToken = token
                     _uiState.update {
                         it.copy(
@@ -460,7 +463,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                             baseUrl = base,
                             deviceToken = token,
                             loggedInUserName = name,
-                            savedPhone = phoneValue
+                            savedPhone = phoneValue,
+                            isAutoSubmitEnabled = false
                         )
                     }
                     fetchCapturedPage(base, force = true)
@@ -715,8 +719,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             descriptorBuffer.clear()
         }
 
-        // After 12 consecutive no/multiple ticks reset suggestion to IN and last activity to "--" unless today's cache exists
-        if (consecutiveNoFaceTicks >= 12) {
+        // In open kiosk mode (no logged-in user), reset suggestion to IN and last activity to "--"
+        // In personalized login mode, keep the user's active location status.
+        if (consecutiveNoFaceTicks >= 12 && _uiState.value.deviceToken.isBlank()) {
             val isCachedToday = cachedAttendance?.isToday() == true
             if (!isCachedToday) {
                 _uiState.update {
@@ -727,6 +732,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 }
             }
         }
+
     }
 
     private fun handleGoodFace(result: FaceDetectionResult, now: Long) {

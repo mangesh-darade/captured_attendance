@@ -134,7 +134,7 @@ class AttendancePreferencesRepository(private val context: Context) {
     }
 
     val autoSubmitFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
-        prefs[KEY_AUTO_SUBMIT] ?: true
+        prefs[KEY_AUTO_SUBMIT] ?: false
     }
 
     suspend fun saveCachedAttendance(
@@ -157,7 +157,7 @@ class AttendancePreferencesRepository(private val context: Context) {
         }
     }
 
-    suspend fun setTenantSettings(url: String, apiKey: String, autoSubmit: Boolean = true, companyCode: String = "") {
+    suspend fun setTenantSettings(url: String, apiKey: String, autoSubmit: Boolean = false, companyCode: String = "") {
         context.dataStore.edit { prefs ->
             prefs[KEY_TENANT_BASE_URL] = url
             prefs[KEY_API_KEY] = apiKey
