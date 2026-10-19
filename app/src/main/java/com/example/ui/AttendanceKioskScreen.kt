@@ -378,8 +378,6 @@ fun AttendanceKioskScreen(
                     tenantLogoUrl = uiState.tenantLogoUrl,
                     tenantSiteName = uiState.tenantSiteName,
                     userName = uiState.loggedInUserName,
-                    currentLanguage = uiState.appLanguage,
-                    onLanguageSelected = { viewModel.onLanguageSelected(it) },
                     onLogoLongClick = { viewModel.onSettingsClicked() },
                     onProfileClick = if (uiState.deviceToken.isNotBlank()) {
                         { showProfile = true }
@@ -838,53 +836,10 @@ fun AttendanceKioskScreen(
 }
 
 @Composable
-private fun LanguageSelectorPill(
-    currentLanguage: String,
-    onLanguageSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val languages = listOf(
-        "en" to "EN",
-        "mr" to "म",
-        "hi" to "हि"
-    )
-    Row(
-        modifier = modifier
-            .background(Color.White.copy(alpha = 0.90f), RoundedCornerShape(16.dp))
-            .border(1.dp, Color(0xFF006D77).copy(alpha = 0.25f), RoundedCornerShape(16.dp))
-            .padding(2.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        languages.forEach { (code, label) ->
-            val isSelected = currentLanguage == code
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(
-                        if (isSelected) Color(0xFF006D77) else Color.Transparent
-                    )
-                    .clickable { onLanguageSelected(code) }
-                    .padding(horizontal = 7.dp, vertical = 3.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = label,
-                    fontSize = 11.sp,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isSelected) Color.White else Color(0xFF006D77)
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun HeaderBar(
     tenantLogoUrl: String?,
     tenantSiteName: String?,
     userName: String,
-    currentLanguage: String,
-    onLanguageSelected: (String) -> Unit,
     onLogoLongClick: () -> Unit,
     onProfileClick: (() -> Unit)? = null
 ) {
@@ -971,11 +926,6 @@ private fun HeaderBar(
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
-            LanguageSelectorPill(
-                currentLanguage = currentLanguage,
-                onLanguageSelected = onLanguageSelected,
-                modifier = Modifier.padding(end = 6.dp)
-            )
             val headerName = userName.ifBlank { tenantSiteName.orEmpty() }
             if (headerName.isNotBlank()) {
                 Text(
@@ -989,7 +939,7 @@ private fun HeaderBar(
                     textAlign = TextAlign.End,
                     modifier = Modifier
                         .padding(end = 8.dp)
-                        .widthIn(max = 140.dp)
+                        .widthIn(max = 170.dp)
                 )
             }
             if (onProfileClick != null) {
