@@ -240,6 +240,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     isBootstrapping = false
                 )
             }
+            AppLogger.setServerContext(base.ifBlank { masterUrl }, androidCode)
 
             // Restore cached last activity if cached date == today
             val cached = preferencesRepository.cachedAttendanceFlow.first()
@@ -355,6 +356,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 return@launch
             }
             _uiState.update { it.copy(isSettingUp = true, setupError = null) }
+            AppLogger.setServerContext(master, code)
             if (typed.isNotEmpty()) {
                 preferencesRepository.saveMasterUrl(typed, _uiState.value.isAutoSubmitEnabled)
             }
@@ -368,6 +370,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 if (response.isSuccessful && body?.status.equals("success", ignoreCase = true) && merchantUrl.isNotEmpty()) {
                     val base = networkClientManager.sanitizeBaseUrl(merchantUrl)
                     val companyCode = body?.code?.trim().orEmpty()
+                    AppLogger.setServerContext(base, code)
+                    AppLogger.i("Setup", "Setup successful for code '$code'. Store URL: $base")
                     preferencesRepository.saveMasterUrl(base, false)
                     preferencesRepository.saveMerchantSetup(base, code, companyCode)
                     preferencesRepository.setAutoSubmit(false)
@@ -1524,4 +1528,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     fun getDiagnosticLogPath(): String = AppLogger.getLogFilePath()
 
     fun clearDiagnosticLogs() = AppLogger.clearLogs()
+
+    fun syncLogsToServer(onResult: (Boolean, String) -> Unit) {
+        val state = _uiState.value
+        val target = state.baseUrl.ifBlank { state.masterUrl.ifBlank { com.example.data.security.SecureConfig.defaultBaseUrl } }
+        AppLogger.syncAllRecentLogs(target, state.androidCode, onResult)
+    }
 }

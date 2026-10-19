@@ -69,6 +69,20 @@ interface AttendanceApiService {
 
     @GET
     suspend fun getSites(@Url url: String): Response<ResponseBody>
+
+    @FormUrlEncoded
+    @POST
+    suspend fun sendClientLog(
+        @Url url: String,
+        @Field("android_code") androidCode: String,
+        @Field("device_name") deviceName: String,
+        @Field("app_version") appVersion: String,
+        @Field("log_level") logLevel: String,
+        @Field("tag") tag: String,
+        @Field("message") message: String,
+        @Field("details") details: String,
+        @Field("token") token: String? = null
+    ): Response<ResponseBody>
 }
 
 interface NominatimService {

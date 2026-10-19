@@ -1072,15 +1072,39 @@ fun AttendanceKioskScreen(
                     }
                 },
                 confirmButton = {
-                    TextButton(
-                        onClick = {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            val clip = ClipData.newPlainText("ElintOM Error Logs", logText)
-                            clipboard.setPrimaryClip(clip)
-                            viewModel.showToast(ToastType.SUCCESS, "Log copied to clipboard!", 2500L)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        var isSyncing by remember { mutableStateOf(false) }
+                        TextButton(
+                            onClick = {
+                                if (isSyncing) return@TextButton
+                                isSyncing = true
+                                viewModel.syncLogsToServer { success, msg ->
+                                    isSyncing = false
+                                    viewModel.showToast(
+                                        if (success) ToastType.SUCCESS else ToastType.ERROR,
+                                        msg,
+                                        3500L
+                                    )
+                                }
+                            }
+                        ) {
+                            Text(
+                                text = if (isSyncing) "Syncing..." else "Sync to Web",
+                                color = Color(0xFF2563EB),
+                                fontFamily = InterFontFamily,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
-                    ) {
-                        Text("Copy Log", fontFamily = InterFontFamily, fontWeight = FontWeight.Bold)
+                        TextButton(
+                            onClick = {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                val clip = ClipData.newPlainText("ElintOM Error Logs", logText)
+                                clipboard.setPrimaryClip(clip)
+                                viewModel.showToast(ToastType.SUCCESS, "Log copied to clipboard!", 2500L)
+                            }
+                        ) {
+                            Text("Copy", fontFamily = InterFontFamily, fontWeight = FontWeight.Bold)
+                        }
                     }
                 },
                 dismissButton = {
