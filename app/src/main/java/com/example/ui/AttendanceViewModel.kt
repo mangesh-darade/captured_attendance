@@ -88,7 +88,8 @@ data class AttendanceUiState(
     val gpsEnabled: Boolean = true,
     val waitingToSend: Boolean = false,
     val areaTracking: Boolean = false,
-    val isBootstrapping: Boolean = true
+    val isBootstrapping: Boolean = true,
+    val appLanguage: String = "en"
 )
 
 class AttendanceViewModel(application: Application) : AndroidViewModel(application) {
@@ -212,6 +213,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             val userName = preferencesRepository.deviceUserNameFlow.first()
             val savedPhone = preferencesRepository.lastPhoneFlow.first()
             val autoSubmit = preferencesRepository.autoSubmitFlow.first()
+            val appLanguage = preferencesRepository.appLanguageFlow.first()
             preferencesRepository.syncFastPrefs(
                 baseUrl = base,
                 companyCode = companyCode,
@@ -233,6 +235,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     loggedInUserName = userName,
                     savedPhone = savedPhone,
                     isAutoSubmitEnabled = autoSubmit,
+                    appLanguage = appLanguage,
                     isBootstrapping = false
                 )
             }
@@ -325,6 +328,13 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 fetchCapturedPage(_uiState.value.baseUrl, force = true)
                 triggerLocationAndDerive()
             }
+        }
+    }
+
+    fun onLanguageSelected(lang: String) {
+        viewModelScope.launch {
+            preferencesRepository.setAppLanguage(lang)
+            _uiState.update { it.copy(appLanguage = lang) }
         }
     }
 

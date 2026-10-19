@@ -85,11 +85,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import android.content.Intent
+import android.content.res.Configuration
 import android.location.LocationManager
 import android.net.Uri
 import android.provider.Settings
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalConfiguration
+import java.util.Locale
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -226,6 +230,26 @@ fun AttendanceKioskScreen(
     var showProfile by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
 
+    val currentLanguage = uiState.appLanguage
+    val locale = remember(currentLanguage) {
+        when (currentLanguage) {
+            "mr" -> Locale("mr")
+            "hi" -> Locale("hi")
+            else -> Locale("en")
+        }
+    }
+    val baseConfiguration = LocalConfiguration.current
+    val configuration = remember(locale, baseConfiguration) {
+        Configuration(baseConfiguration).apply {
+            setLocale(locale)
+            setLayoutDirection(locale)
+        }
+    }
+    val baseContext = LocalContext.current
+    val localizedContext = remember(configuration, baseContext) {
+        baseContext.createConfigurationContext(configuration)
+    }
+
     // Permissions launcher
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -322,41 +346,47 @@ fun AttendanceKioskScreen(
         }
     }
 
-    // Embed hidden WebView into the hierarchy so it runs WebGL/Canvas properly
-    Box(modifier = Modifier.size(1.dp).alpha(0.001f)) {
-        AndroidView(
-            factory = { webViewManager.initialize() },
-            modifier = Modifier.size(1.dp)
-        )
-    }
-
-    // Page background #E8F0FB with full height white panel
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(PageBackground),
-        contentAlignment = Alignment.TopCenter
+    CompositionLocalProvider(
+        LocalConfiguration provides configuration,
+        LocalContext provides localizedContext
     ) {
-        // Centered white panel (width max 600dp for tablet/desktop kiosk ergonomics)
-        Column(
-            modifier = Modifier
-                .fillMaxHeight()
-                .widthIn(max = 600.dp)
-                .fillMaxWidth()
-                .background(PanelBackground)
-        ) {
-            // 1) Header bar bg #E7EBF1, padding 10x14
-            HeaderBar(
-                tenantLogoUrl = uiState.tenantLogoUrl,
-                tenantSiteName = uiState.tenantSiteName,
-                userName = uiState.loggedInUserName,
-                onLogoLongClick = { viewModel.onSettingsClicked() },
-                onProfileClick = if (uiState.deviceToken.isNotBlank()) {
-                    { showProfile = true }
-                } else {
-                    null
-                }
+        // Embed hidden WebView into the hierarchy so it runs WebGL/Canvas properly
+        Box(modifier = Modifier.size(1.dp).alpha(0.001f)) {
+            AndroidView(
+                factory = { webViewManager.initialize() },
+                modifier = Modifier.size(1.dp)
             )
+        }
+
+        // Page background #E8F0FB with full height white panel
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .background(PageBackground),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            // Centered white panel (width max 600dp for tablet/desktop kiosk ergonomics)
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = 600.dp)
+                    .fillMaxWidth()
+                    .background(PanelBackground)
+            ) {
+                // 1) Header bar bg #E7EBF1, padding 10x14
+                HeaderBar(
+                    tenantLogoUrl = uiState.tenantLogoUrl,
+                    tenantSiteName = uiState.tenantSiteName,
+                    userName = uiState.loggedInUserName,
+                    currentLanguage = uiState.appLanguage,
+                    onLanguageSelected = { viewModel.onLanguageSelected(it) },
+                    onLogoLongClick = { viewModel.onSettingsClicked() },
+                    onProfileClick = if (uiState.deviceToken.isNotBlank()) {
+                        { showProfile = true }
+                    } else {
+                        null
+                    }
+                )
 
             // Scrollable body
             val scrollState = rememberScrollState()
@@ -437,7 +467,7 @@ fun AttendanceKioskScreen(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = "Fetching live location...",
+                                    text = stringResource(R.string.status_fetching_location),
                                     style = TextStyle(
                                         fontFamily = InterFontFamily,
                                         fontSize = 12.sp,
@@ -723,6 +753,8 @@ fun AttendanceKioskScreen(
         if (showProfile && uiState.deviceToken.isNotBlank()) {
             ProfileDialog(
                 userName = uiState.loggedInUserName,
+                currentLanguage = uiState.appLanguage,
+                onLanguageSelected = { viewModel.onLanguageSelected(it) },
                 autoSubmit = uiState.isAutoSubmitEnabled,
                 onAutoSubmitChange = { viewModel.setAutoSubmit(it) },
                 onDismiss = { showProfile = false },
@@ -759,12 +791,12 @@ fun AttendanceKioskScreen(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
                     ) {
-                        Text("Log out", fontFamily = InterFontFamily, color = Color.White)
+                        Text(stringResource(R.string.btn_logout), fontFamily = InterFontFamily, color = Color.White)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { confirmLogout = false }) {
-                        Text("Cancel", fontFamily = InterFontFamily, color = TextMuted)
+                        Text(stringResource(R.string.btn_cancel), fontFamily = InterFontFamily, color = TextMuted)
                     }
                 }
             )
@@ -803,12 +835,57 @@ fun AttendanceKioskScreen(
         }
     }
 }
+    }
+}
+
+@Composable
+private fun LanguageSelectorPill(
+    currentLanguage: String,
+    onLanguageSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val languages = listOf(
+        "en" to "EN",
+        "mr" to "म",
+        "hi" to "हि"
+    )
+    Row(
+        modifier = modifier
+            .background(Color.White.copy(alpha = 0.90f), RoundedCornerShape(16.dp))
+            .border(1.dp, Color(0xFF006D77).copy(alpha = 0.25f), RoundedCornerShape(16.dp))
+            .padding(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        languages.forEach { (code, label) ->
+            val isSelected = currentLanguage == code
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        if (isSelected) Color(0xFF006D77) else Color.Transparent
+                    )
+                    .clickable { onLanguageSelected(code) }
+                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    fontSize = 11.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSelected) Color.White else Color(0xFF006D77)
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun HeaderBar(
     tenantLogoUrl: String?,
     tenantSiteName: String?,
     userName: String,
+    currentLanguage: String,
+    onLanguageSelected: (String) -> Unit,
     onLogoLongClick: () -> Unit,
     onProfileClick: (() -> Unit)? = null
 ) {
@@ -895,6 +972,11 @@ private fun HeaderBar(
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
+            LanguageSelectorPill(
+                currentLanguage = currentLanguage,
+                onLanguageSelected = onLanguageSelected,
+                modifier = Modifier.padding(end = 6.dp)
+            )
             val headerName = userName.ifBlank { tenantSiteName.orEmpty() }
             if (headerName.isNotBlank()) {
                 Text(
@@ -908,7 +990,7 @@ private fun HeaderBar(
                     textAlign = TextAlign.End,
                     modifier = Modifier
                         .padding(end = 8.dp)
-                        .widthIn(max = 170.dp)
+                        .widthIn(max = 140.dp)
                 )
             }
             if (onProfileClick != null) {
@@ -1066,6 +1148,8 @@ private fun ProfileAvatar(
 @Composable
 private fun ProfileDialog(
     userName: String,
+    currentLanguage: String,
+    onLanguageSelected: (String) -> Unit,
     autoSubmit: Boolean,
     onAutoSubmitChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
@@ -1075,14 +1159,14 @@ private fun ProfileDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close", fontFamily = InterFontFamily, color = TextMuted)
+                Text(stringResource(R.string.btn_close), fontFamily = InterFontFamily, color = TextMuted)
             }
         },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 ProfileAvatar(name = userName, size = 72.dp)
                 Text(
@@ -1099,6 +1183,64 @@ private fun ProfileDialog(
                     fontSize = 13.sp,
                     color = TextMuted
                 )
+
+                // Language selection card
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.label_language),
+                            fontFamily = InterFontFamily,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            listOf(
+                                "en" to stringResource(R.string.lang_en),
+                                "mr" to stringResource(R.string.lang_mr),
+                                "hi" to stringResource(R.string.lang_hi)
+                            ).forEach { (code, name) ->
+                                val selected = currentLanguage == code
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (selected) Color(0xFF006D77) else Color.White)
+                                        .border(
+                                            1.dp,
+                                            if (selected) Color(0xFF006D77) else Color(0xFFCBD5E1),
+                                            RoundedCornerShape(8.dp)
+                                        )
+                                        .clickable { onLanguageSelected(code) }
+                                        .padding(vertical = 8.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = name,
+                                        fontFamily = InterFontFamily,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (selected) Color.White else Color(0xFF1E293B)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = Color(0xFFF8FAFC),
@@ -1114,7 +1256,7 @@ private fun ProfileDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = if (autoSubmit) "Auto submit" else "Manual submit",
+                                text = stringResource(R.string.label_auto_submit),
                                 fontFamily = InterFontFamily,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -1148,7 +1290,7 @@ private fun ProfileDialog(
                         tint = Color.White
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Log out", fontFamily = InterFontFamily, color = Color.White)
+                    Text(stringResource(R.string.btn_logout), fontFamily = InterFontFamily, color = Color.White)
                 }
             }
         }
@@ -1473,7 +1615,7 @@ private fun StickyBottomBar(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Waiting for location...",
+                        text = stringResource(R.string.status_fetching_location),
                         style = TextStyle(
                             fontFamily = InterFontFamily,
                             fontSize = 15.sp,
@@ -1488,8 +1630,14 @@ private fun StickyBottomBar(
                         modifier = Modifier.size(20.dp)
                     )
                     Spacer(modifier = Modifier.width(8.dp))
+                    val buttonLabel = when (buttonState) {
+                        AttendanceButtonState.CAPTURE -> stringResource(R.string.btn_capture)
+                        AttendanceButtonState.SCANNING -> stringResource(R.string.btn_scanning)
+                        AttendanceButtonState.SUBMITTING -> stringResource(R.string.btn_submitting)
+                        AttendanceButtonState.RETAKE -> stringResource(R.string.btn_retake)
+                    }
                     Text(
-                        text = buttonState.label,
+                        text = buttonLabel,
                         style = TextStyle(
                             fontFamily = InterFontFamily,
                             fontSize = 16.sp,

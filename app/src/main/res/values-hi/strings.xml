@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ElintOM Capture</string>
+    <string name="title_capture_attendance">ElintOM उपस्थिति</string>
+    <string name="btn_in">अंदर (IN)</string>
+    <string name="btn_out">बाहर (OUT)</string>
+    <string name="label_last_activity_prefix">अंतिम गतिविधि: </string>
+    <string name="label_notes">नोट्स (Notes)</string>
+    <string name="placeholder_notes">नोट्स दर्ज करें...</string>
+    <string name="default_status">कोई चेहरा नहीं मिला</string>
+    <string name="powered_by">Powered by</string>
+    <string name="btn_capture">कैप्चर करें</string>
+    <string name="btn_scanning">स्कैन हो रहा है...</string>
+    <string name="btn_submitting">दर्ज हो रहा है...</string>
+    <string name="btn_retake">पुनः लें</string>
+    <string name="multiple_locations_hint">पास में एक से अधिक स्थान मिले। कृपया एक स्थान चुनें।</string>
+    <string name="select_nearby_location">पास का स्थान चुनें</string>
+    <string name="label_standing_landmark">आप यहां हैं</string>
+    <string name="label_language">भाषा</string>
+    <string name="lang_en">English</string>
+    <string name="lang_mr">मराठी</string>
+    <string name="lang_hi">हिंदी</string>
+    <string name="status_face_ready">चेहरा स्कैनिंग तैयार है।</string>
+    <string name="status_scanning_face">चेहरा स्कैन हो रहा है...</string>
+    <string name="status_hold_still">कृपया कैमरे के सामने स्थिर रहें</string>
+    <string name="status_submitting">उपस्थिति दर्ज हो रही है...</string>
+    <string name="status_fetching_location">लाइव लोकेशन प्राप्त कर रहे हैं...</string>
+    <string name="status_location_unavailable">लोकेशन उपलब्ध नहीं है</string>
+    <string name="label_attendance_in">चेक इन (IN)</string>
+    <string name="label_attendance_out">चेक आउट (OUT)</string>
+    <string name="label_last_activity">अंतिम गतिविधि</string>
+    <string name="label_selected_location">चुना गया स्थान</string>
+    <string name="label_settings">सेटिंग्स</string>
+    <string name="btn_save">सहेजें</string>
+    <string name="btn_cancel">रद्द करें</string>
+    <string name="btn_close">बंद करें</string>
+    <string name="btn_logout">लॉग आउट</string>
+    <string name="label_profile">प्रोफाइल</string>
+    <string name="label_auto_submit">ऑटो सबमिट</string>
+    <string name="label_server_url">सर्वर URL</string>
+    <string name="msg_success_in">चेक इन सफल रहा!</string>
+    <string name="msg_success_out">चेक आउट सफल रहा!</string>
+    <string name="msg_face_not_recognized">चेहरा पहचाना नहीं गया। कृपया कैमरे की ओर सीधे देखें।</string>
+    <string name="msg_already_checked_in">पहले से चेक इन हैं। चेक आउट करने के लिए OUT चुनें।</string>
+    <string name="msg_outside_geofence">आप पंजीकृत कार्यालय/साइट की सीमा से बाहर हैं।</string>
+</resources>

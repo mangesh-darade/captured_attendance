@@ -48,6 +48,7 @@ class AttendancePreferencesRepository(private val context: Context) {
         val KEY_LAST_PHONE = stringPreferencesKey("device_last_phone")
         val KEY_SITES = stringPreferencesKey("attendance_sites_json")
         val KEY_OFFLINE_QUEUE = stringPreferencesKey("attendance_offline_queue")
+        val KEY_APP_LANGUAGE = stringPreferencesKey("app_language")
 
         const val DEFAULT_BASE_URL = "https://qa18.elintom.us/"
     }
@@ -135,6 +136,16 @@ class AttendancePreferencesRepository(private val context: Context) {
 
     val autoSubmitFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
         prefs[KEY_AUTO_SUBMIT] ?: false
+    }
+
+    val appLanguageFlow: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[KEY_APP_LANGUAGE] ?: "en"
+    }
+
+    suspend fun setAppLanguage(lang: String) {
+        context.dataStore.edit { prefs ->
+            prefs[KEY_APP_LANGUAGE] = lang
+        }
     }
 
     suspend fun saveCachedAttendance(
