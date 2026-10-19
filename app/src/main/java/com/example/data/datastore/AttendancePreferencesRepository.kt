@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.map
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import com.example.data.security.SecureConfig
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "attendance_settings")
 
@@ -50,7 +51,8 @@ class AttendancePreferencesRepository(private val context: Context) {
         val KEY_OFFLINE_QUEUE = stringPreferencesKey("attendance_offline_queue")
         val KEY_APP_LANGUAGE = stringPreferencesKey("app_language")
 
-        const val DEFAULT_BASE_URL = "http://192.168.0.239/ElintOm_PHP_8.5/"
+        val DEFAULT_BASE_URL: String
+            get() = SecureConfig.defaultBaseUrl
     }
 
     private val fastPrefs = context.getSharedPreferences("attendance_fast_prefs", Context.MODE_PRIVATE)

@@ -12,10 +12,17 @@
 #   public *;
 #}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# Strip debug attributes to prevent reverse engineering
+-repackageclasses ''
+-allowaccessmodification
+-repackageclasses 'com.example.hidden'
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# Strip source file names and line numbers from compiled bytecode
+-renamesourcefileattribute SourceFile
+-keepattributes !SourceFile,!LineNumberTable
+
+# Ensure Moshi models and Camera2 models are preserved for JSON serialization
+-keepclassmembers class * {
+    @com.squareup.moshi.Json *;
+}
+

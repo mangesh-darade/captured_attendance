@@ -4,6 +4,37 @@ plugins {
   alias(libs.plugins.google.devtools.ksp)
 }
 
+import java.util.Properties
+
+fun loadDotEnv(): Properties {
+  val props = Properties()
+  val envFile = rootProject.file(".env")
+  if (envFile.exists() && envFile.isFile) {
+    envFile.inputStream().use { props.load(it) }
+  } else {
+    val exampleFile = rootProject.file(".env.example")
+    if (exampleFile.exists() && exampleFile.isFile) {
+      exampleFile.inputStream().use { props.load(it) }
+    }
+  }
+  return props
+}
+
+val dotEnv = loadDotEnv()
+val superAdminUrlRaw = (dotEnv.getProperty("SUPER_ADMIN_DEFAULT_URL") ?: "").trim()
+  .ifEmpty { "http://192.168.0.239/ElintOm_PHP_8.5/" }
+
+fun obfuscateToHex(input: String, salt: Int): String {
+  val bytes = input.toByteArray(Charsets.UTF_8)
+  return bytes.joinToString("") { b ->
+    val xorVal = (b.toInt() xor salt) and 0xFF
+    String.format("%02x", xorVal)
+  }
+}
+
+val urlSaltKey = 0x5D
+val obfuscatedUrlHex = obfuscateToHex(superAdminUrlRaw, urlSaltKey)
+
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
@@ -16,6 +47,9 @@ android {
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+    buildConfigField("String", "OBFUSCATED_DIRECTORY_PAYLOAD", "\"$obfuscatedUrlHex\"")
+    buildConfigField("int", "OBFUSCATED_DIRECTORY_SALT", "$urlSaltKey")
   }
 
   // Do not remove or modify these signingConfigs. They are necessary for building, installing,
