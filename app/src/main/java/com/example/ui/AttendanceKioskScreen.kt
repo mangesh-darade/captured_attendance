@@ -835,7 +835,6 @@ fun AttendanceKioskScreen(
         }
     }
 }
-    }
 }
 
 @Composable
