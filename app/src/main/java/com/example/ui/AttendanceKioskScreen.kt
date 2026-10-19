@@ -131,6 +131,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.example.R
+import com.example.data.datastore.AttendancePreferencesRepository
 import com.example.data.model.AttendanceButtonState
 import com.example.data.model.ToastType
 import com.example.face.FaceDetectionBridge
@@ -2410,7 +2411,7 @@ private fun SettingsDialog(
                             testResult = null
                         },
                         label = { Text("Merchant directory URL", fontFamily = InterFontFamily) },
-                        placeholder = { Text("https://qa18.elintom.us/", fontFamily = InterFontFamily) },
+                        placeholder = { Text(AttendancePreferencesRepository.DEFAULT_BASE_URL, fontFamily = InterFontFamily) },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = BrandPrimary,
@@ -2423,8 +2424,8 @@ private fun SettingsDialog(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End
                     ) {
-                        TextButton(onClick = { urlText = "https://qa18.elintom.us/" }) {
-                            Text("Set Live: qa18.elintom.us", fontFamily = InterFontFamily, fontSize = 11.5.sp, color = BrandPrimary)
+                        TextButton(onClick = { urlText = AttendancePreferencesRepository.DEFAULT_BASE_URL }) {
+                            Text("Set Default URL", fontFamily = InterFontFamily, fontSize = 11.5.sp, color = BrandPrimary)
                         }
                     }
 

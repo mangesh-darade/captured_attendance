@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ElintOM Capture</string>
+    <string name="app_name">ElintOM AT</string>
     <string name="title_capture_attendance">ElintOM हजेरी</string>
     <string name="btn_in">आत (IN)</string>
     <string name="btn_out">बाहेर (OUT)</string>

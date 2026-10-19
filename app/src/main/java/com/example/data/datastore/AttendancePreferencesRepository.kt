@@ -50,7 +50,7 @@ class AttendancePreferencesRepository(private val context: Context) {
         val KEY_OFFLINE_QUEUE = stringPreferencesKey("attendance_offline_queue")
         val KEY_APP_LANGUAGE = stringPreferencesKey("app_language")
 
-        const val DEFAULT_BASE_URL = "https://qa18.elintom.us/"
+        const val DEFAULT_BASE_URL = "http://192.168.0.239/ElintOm_PHP_8.5/"
     }
 
     private val fastPrefs = context.getSharedPreferences("attendance_fast_prefs", Context.MODE_PRIVATE)
@@ -60,7 +60,10 @@ class AttendancePreferencesRepository(private val context: Context) {
     fun getFastCompanyCode(): String = fastPrefs.getString("company_code", "") ?: ""
     fun getFastAndroidCode(): String = fastPrefs.getString("android_code", "") ?: ""
     fun getFastUserName(): String = fastPrefs.getString("user_name", "") ?: ""
-    fun getFastBaseUrl(): String = fastPrefs.getString("tenant_base_url", DEFAULT_BASE_URL) ?: DEFAULT_BASE_URL
+    fun getFastBaseUrl(): String {
+        val saved = fastPrefs.getString("tenant_base_url", DEFAULT_BASE_URL)
+        return if (saved.isNullOrBlank() || saved.contains("qa18.elintom.us")) DEFAULT_BASE_URL else saved
+    }
     fun getFastSavedPhone(): String = fastPrefs.getString("last_phone", "") ?: ""
 
     fun syncFastPrefs(
@@ -94,7 +97,8 @@ class AttendancePreferencesRepository(private val context: Context) {
     }
 
     val tenantBaseUrlFlow: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[KEY_TENANT_BASE_URL] ?: DEFAULT_BASE_URL
+        val saved = prefs[KEY_TENANT_BASE_URL]
+        if (saved.isNullOrBlank() || saved.contains("qa18.elintom.us")) DEFAULT_BASE_URL else saved
     }
 
     val tenantApiKeyFlow: Flow<String> = context.dataStore.data.map { prefs ->
@@ -107,7 +111,7 @@ class AttendancePreferencesRepository(private val context: Context) {
 
     val masterUrlFlow: Flow<String> = context.dataStore.data.map { prefs ->
         val saved = prefs[KEY_MASTER_URL] ?: prefs[KEY_TENANT_BASE_URL]
-        if (saved.isNullOrBlank() || saved.contains("192.168.") || saved.contains("localhost") || saved.contains("127.0.0.1") || saved.contains("10.0.2.2")) {
+        if (saved.isNullOrBlank() || saved.contains("qa18.elintom.us")) {
             DEFAULT_BASE_URL
         } else {
             saved
@@ -211,7 +215,7 @@ class AttendancePreferencesRepository(private val context: Context) {
     suspend fun clearMerchantSetup() {
         fastPrefs.edit().clear().apply()
         context.dataStore.edit { prefs ->
-            val master = prefs[KEY_MASTER_URL] ?: prefs[KEY_TENANT_BASE_URL] ?: DEFAULT_BASE_URL
+            val master = (prefs[KEY_MASTER_URL] ?: prefs[KEY_TENANT_BASE_URL])?.takeIf { !it.contains("qa18.elintom.us") } ?: DEFAULT_BASE_URL
             prefs[KEY_MASTER_URL] = master
             prefs[KEY_TENANT_BASE_URL] = master
             prefs[KEY_ANDROID_CODE] = ""
