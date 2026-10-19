@@ -107,6 +107,12 @@ internal fun formatAddressLandmark(address: Address): String {
         s.contains("+") || s.matches(Regex("^[A-Z0-9]{4,8}\\+[A-Z0-9]{2,4}$"))
     }
 
+    val isHouseOrSurveyNumber: (String) -> Boolean = { s ->
+        val clean = s.trim()
+        clean.matches(Regex("^[0-9]+[A-Za-z]?([/-][0-9]+[A-Za-z]?)?$")) ||
+        clean.matches(Regex("^(Plot|Flat|Shop|Room|Bldg|Building|Survey|S\\.No|H\\.No|House|Gala|CTS|C\\.T\\.S|Sr|Sr\\.No|Sector|Gat|Gat No)\\.?\\s*.*", RegexOption.IGNORE_CASE))
+    }
+
     if (addressLine.isNotBlank()) {
         // In India, Google Maps Geocoder formats addressLine(0) starting with finest components:
         // [House/Plot/Building No], [Society/Colony/Lane], [Locality], [City], [State Pincode], [Country]
@@ -120,16 +126,17 @@ internal fun formatAddressLandmark(address: Address): String {
                 !token.equals("Maharashtra", ignoreCase = true)
             }
 
-        // Drop city from the end if we already have 2+ local specific tokens (e.g. drop "Pune" if we have ["97/204", "Ujavi Bhusari Colony", "Kothrud", "Pune"])
-        val city = locality.ifBlank { address.adminArea.orEmpty() }
-        val filteredTokens = if (cleanTokens.size > 2 && city.isNotBlank() && cleanTokens.last().equals(city, ignoreCase = true)) {
-            cleanTokens.dropLast(1)
+        // If the first token is a raw house/plot/survey number (e.g. 97/204, 12/A), and we have descriptive area tokens following, drop the cryptic house number
+        val withoutHouseNumber = if (cleanTokens.size >= 3 && isHouseOrSurveyNumber(cleanTokens[0])) {
+            cleanTokens.drop(1)
         } else {
             cleanTokens
         }
 
-        if (filteredTokens.isNotEmpty()) {
-            return filteredTokens.take(3).joinToString(", ")
+        // Take up to 3 clean descriptive tokens (e.g. "Ujavi Bhusari Colony, Kothrud, Pune")
+        val finalTokens = withoutHouseNumber.take(3)
+        if (finalTokens.isNotEmpty()) {
+            return finalTokens.joinToString(", ")
         }
     }
 

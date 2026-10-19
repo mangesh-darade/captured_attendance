@@ -82,7 +82,7 @@ data class AttendanceUiState(
     val isPosting: Boolean = false,
     val showSettingsDialog: Boolean = false,
     val capturedBitmap: Bitmap? = null,
-    val isAutoSubmitEnabled: Boolean = false,
+    val isAutoSubmitEnabled: Boolean = true,
     val isOnline: Boolean = true,
     val cameraAllowed: Boolean = true,
     val locationAllowed: Boolean = true,
@@ -384,7 +384,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                             masterUrl = base,
                             baseUrl = base,
                             companyCode = companyCode,
-                            isAutoSubmitEnabled = false,
+                            isAutoSubmitEnabled = it.isAutoSubmitEnabled,
                             tenantSiteName = body?.name?.trim()?.takeIf { name -> name.isNotEmpty() } ?: it.tenantSiteName
                         )
                     }
@@ -481,7 +481,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                             deviceToken = token,
                             loggedInUserName = name,
                             savedPhone = phoneValue,
-                            isAutoSubmitEnabled = false
+                            isAutoSubmitEnabled = it.isAutoSubmitEnabled
                         )
                     }
                     fetchCapturedPage(base, force = true)
@@ -920,7 +920,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             return
         }
 
-        if (state.capturedBitmap != null || !state.isCameraActive || state.buttonState == AttendanceButtonState.RETAKE) {
+        if (state.buttonState == AttendanceButtonState.RETAKE) {
             resetCapturedJob?.cancel()
             _uiState.update {
                 it.copy(
@@ -934,9 +934,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             return
         }
 
-        // Wait for several steady samples so one blurry frame is not what gets matched.
+        // Wait for steady samples or proceed if at least 1 valid descriptor is available
         val validCount = synchronized(descriptorBuffer) { descriptorBuffer.count { it.size == 128 } }
-        if (validCount >= 4) {
+        if (validCount >= 1) {
             submitAttendance(isAuto = false)
             return
         }
@@ -944,11 +944,11 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.update { it.copy(buttonState = AttendanceButtonState.SCANNING, statusText = "Hold still, matching your face...") }
         scanningTimeoutJob?.cancel()
         scanningTimeoutJob = viewModelScope.launch {
-            val deadline = System.currentTimeMillis() + 2200L
+            val deadline = System.currentTimeMillis() + 1800L
             while (System.currentTimeMillis() < deadline) {
                 val ready = synchronized(descriptorBuffer) { descriptorBuffer.count { it.size == 128 } }
-                if (ready >= 4) break
-                delay(200L)
+                if (ready >= 1) break
+                delay(150L)
             }
             if (_uiState.value.buttonState != AttendanceButtonState.SCANNING) return@launch
             val currentValid = synchronized(descriptorBuffer) { descriptorBuffer.count { it.size == 128 } }
@@ -1022,7 +1022,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
                 val response = networkClientManager.attendanceService.storeAttendance(
                     url = url,
-                    token = null,
+                    token = state.deviceToken.ifBlank { null },
                     descriptor = descriptorJson,
                     latitude = knownLat.toString(),
                     longitude = knownLng.toString(),
@@ -1104,6 +1104,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             item.put("attendanceType", attendanceType)
             item.put("selectedLoc", siteName)
             item.put("baseUrl", state.baseUrl)
+            item.put("token", state.deviceToken)
             item.put("punchedAt", punchedAt)
             offlineMutex.withLock {
                 val queue = JSONArray(preferencesRepository.readOfflineQueue().ifBlank { "[]" })
@@ -1169,7 +1170,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                         val url = "${networkClientManager.sanitizeBaseUrl(item.optString("baseUrl", _uiState.value.baseUrl))}attendance_api/store"
                         val response = networkClientManager.attendanceService.storeAttendance(
                             url = url,
-                            token = null,
+                            token = item.optString("token", _uiState.value.deviceToken).ifBlank { null },
                             descriptor = item.optString("descriptor"),
                             latitude = item.optString("latitude"),
                             longitude = item.optString("longitude"),

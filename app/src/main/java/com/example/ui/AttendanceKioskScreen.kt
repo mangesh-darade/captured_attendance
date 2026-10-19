@@ -664,12 +664,24 @@ fun AttendanceKioskScreen(
                                     tint = Color(0xFF006D77),
                                     modifier = Modifier.size(16.dp)
                                 )
+                                val siteName = uiState.selectedLocation?.pureName()?.takeIf { it.isNotBlank() }
+                                val landmarkText = uiState.currentLandmark.ifBlank {
+                                    if (uiState.currentLat != null) "(${uiState.currentLat}, ${uiState.currentLng})" else ""
+                                }
+                                val locationDisplayText = when {
+                                    siteName != null && landmarkText.isNotBlank() -> {
+                                        stringResource(R.string.label_standing_landmark) + ": " + siteName + " (" + landmarkText + ")"
+                                    }
+                                    siteName != null -> {
+                                        stringResource(R.string.label_standing_landmark) + ": " + siteName
+                                    }
+                                    landmarkText.isNotBlank() -> {
+                                        stringResource(R.string.label_standing_landmark) + ": " + landmarkText
+                                    }
+                                    else -> stringResource(R.string.label_standing_landmark)
+                                }
                                 Text(
-                                    text = if (uiState.currentLandmark.isNotBlank()) {
-                                        stringResource(R.string.label_standing_landmark) + ": " + uiState.currentLandmark
-                                    } else {
-                                        stringResource(R.string.label_standing_landmark) + ": (${uiState.currentLat}, ${uiState.currentLng})"
-                                    },
+                                    text = locationDisplayText,
                                     style = TextStyle(
                                         fontFamily = InterFontFamily,
                                         fontSize = 12.sp,
