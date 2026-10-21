@@ -1,5 +1,6 @@
 package com.example.ui
 
+import com.example.lang.LangManager
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -178,228 +179,82 @@ private data class FaceGuideLook(
     val captionColor: Color
 )
 
-private fun localizeStatusText(status: String, lang: String): String {
-    if (lang == "en" || status.isBlank()) return status
-    val lower = status.lowercase()
-    return when {
-        lower.contains("face detected successfully") || lower.contains("successfully") -> {
-            if (lang == "mr") "चेहरा यशस्वीपणे ओळखला" else "चेहरा सफलतापूर्वक पहचाना गया"
-        }
-        lower.contains("no face detected") || lower.contains("no face") -> {
-            if (lang == "mr") "चेहरा आढळला नाही. पुन्हा प्रयत्न करा." else "कोई चेहरा नहीं मिला। पुनः प्रयास करें।"
-        }
-        lower.contains("multiple faces") -> {
-            if (lang == "mr") "एकापेक्षा जास्त चेहरे आढळले." else "एक से अधिक चेहरे मिले।"
-        }
-        lower.contains("hold still") -> {
-            if (lang == "mr") "कृपया कॅमेऱ्यासमोर स्थिर उभे राहा" else "कृपया कैमरे के सामने स्थिर रहें"
-        }
-        lower.contains("face detection ready") || lower == "ready" -> {
-            if (lang == "mr") "चेहरा स्कॅनिंग तयार आहे." else "चेहरा स्कैनिंग तैयार है।"
-        }
-        lower.contains("loading face model") || lower.contains("camera active") -> {
-            if (lang == "mr") "कॅमेरा सुरू झाला. मॉडेल लोड होत आहे..." else "कैमरा सक्रिय। मॉडल लोड हो रहा है..."
-        }
-        lower.contains("scanning face") || lower.contains("matching your face") -> {
-            if (lang == "mr") "चेहरा स्कॅन करत आहे..." else "चेहरा स्कैन हो रहा है..."
-        }
-        lower.contains("submitting") -> {
-            if (lang == "mr") "हजेरी नोंदवत आहे..." else "उपस्थिति दर्ज हो रही है..."
-        }
-        lower.contains("check-in successful") || lower.contains("check in successful") -> {
-            if (lang == "mr") "चेक इन यशस्वी झाले!" else "चेक इन सफल रहा!"
-        }
-        lower.contains("check-out successful") || lower.contains("check out successful") -> {
-            if (lang == "mr") "चेक आउट यशस्वी झाले!" else "चेक आउट सफल रहा!"
-        }
-        lower.contains("already checked in") -> {
-            if (lang == "mr") "आधीच चेक इन झाले आहे. चेक आउट करण्यासाठी OUT निवडा." else "पहले से चेक इन हैं। चेक आउट करने के लिए OUT चुनें।"
-        }
-        lower.contains("already checked out") -> {
-            if (lang == "mr") "आधीच चेक आउट झाले आहे. चेक इन करण्यासाठी IN निवडा." else "पहले से चेक आउट हैं। चेक इन करने के लिए IN चुनें।"
-        }
-        lower.contains("not recognized") -> {
-            if (lang == "mr") "चेहरा ओळखला नाही. कृपया कॅमेऱ्याकडे थेट पहा." else "चेहरा पहचाना नहीं गया। कृपया कैमरे की ओर सीधे देखें।"
-        }
-        lower.contains("attendance marked") -> {
-            if (lang == "mr") "हजेरी नोंदवली गेली!" else "उपस्थिति दर्ज की गई!"
-        }
-        else -> status
-    }
-}
+private fun localizeStatusText(status: String, lang: String): String =
+    LangManager.getStrings(lang).localizeStatus(status)
 
-private fun localizeToastMessage(message: String, lang: String): String {
-    if (lang == "en" || message.isBlank()) return message
-    val lower = message.lowercase()
-    return when {
-        lower.contains("check-in successful") || lower.contains("check in successful") || lower.contains("checkin successful") -> {
-            if (lang == "mr") "चेक इन यशस्वी झाले!" else "चेक इन सफल रहा!"
-        }
-        lower.contains("check-out successful") || lower.contains("check out successful") || lower.contains("checkout successful") -> {
-            if (lang == "mr") "चेक आउट यशस्वी झाले!" else "चेक आउट सफल रहा!"
-        }
-        lower.contains("attendance marked") || lower.contains("attendance saved") -> {
-            if (lang == "mr") "हजेरी नोंदवली गेली!" else "उपस्थिति दर्ज की गई!"
-        }
-        lower.contains("already checked in") -> {
-            if (lang == "mr") "आधीच चेक इन झाले आहे. चेक आउट करण्यासाठी OUT निवडा." else "पहले से चेक इन हैं। चेक आउट करने के लिए OUT चुनें।"
-        }
-        lower.contains("already checked out") -> {
-            if (lang == "mr") "आधीच चेक आउट झाले आहे. चेक इन करण्यासाठी IN निवडा." else "पहले से चेक आउट हैं। चेक इन करने के लिए IN चुनें।"
-        }
-        lower.contains("not recognized") -> {
-            if (lang == "mr") "चेहरा ओळखला नाही. कृपया कॅमेऱ्याकडे थेट पहा." else "चेहरा पहचाना नहीं गया। कृपया कैमरे की ओर सीधे देखें।"
-        }
-        lower.contains("no face detected") -> {
-            if (lang == "mr") "कॅमेऱ्यात चेहरा आढळला नाही. कृपया कॅमेऱ्याकडे थेट पहा." else "कैमरे में कोई चेहरा नहीं मिला। कृपया कैमरे की ओर सीधे देखें।"
-        }
-        lower.contains("geofence") || lower.contains("outside") -> {
-            if (lang == "mr") "तुम्ही नोंदणीकृत ऑफिस / साईटच्या परिसराबाहेर आहात." else "आप पंजीकृत कार्यालय/साइट की सीमा से बाहर हैं।"
-        }
-        lower.contains("gps location is not available") || lower.contains("gps is turned off") -> {
-            if (lang == "mr") "GPS लोकेशन उपलब्ध नाही. कृपया GPS चालू करा." else "GPS लोकेशन उपलब्ध नहीं है। कृपया GPS चालू करें।"
-        }
-        lower.contains("acquiring location") -> {
-            if (lang == "mr") "लोकेशन शोधत आहे. कृपया थांबा..." else "लोकेशन प्राप्त कर रहे हैं। कृपया प्रतीक्षा करें..."
-        }
-        lower.contains("log in with your phone number") -> {
-            if (lang == "mr") "हजेरी नोंदवण्यापूर्वी कृपया फोन नंबरने लॉगिन करा." else "उपस्थिति दर्ज करने से पहले कृपया फ़ोन नंबर से लॉगिन करें।"
-        }
-        lower.contains("internet restored") -> {
-            if (lang == "mr") "इंटरनेट पुन्हा सुरू झाले." else "इंटरनेट पुनः जुड़ गया।"
-        }
-        lower.contains("offline attendance synced") -> {
-            if (lang == "mr") "ऑफलाईन हजेरी सिंक झाली." else "ऑफ़लाइन उपस्थिति सिंक हो गई।"
-        }
-        else -> message
-    }
-}
+private fun localizeToastMessage(message: String, lang: String): String =
+    LangManager.getStrings(lang).localizeToast(message)
 
-private fun localizeActivityText(text: String, lang: String): String {
-    if (text.isBlank() || text == "--" || lang == "en") return text
-    return text
-        .replace("Check-out at", "चेक-आउट:")
-        .replace("Check-in at", "चेक-इन:")
-        .replace("Check out at", "चेक-आउट:")
-        .replace("Check in at", "चेक-इन:")
-}
+private fun localizeActivityText(text: String, lang: String): String =
+    LangManager.getStrings(lang).localizeActivity(text)
 
 private fun faceGuideLook(status: String, captured: Boolean, lang: String): FaceGuideLook {
+    val s = LangManager.getStrings(lang)
     if (captured) {
-        val chip = when (lang) {
-            "mr" -> "कॅप्चर झाले (Captured)"
-            "hi" -> "कैप्चर किया (Captured)"
-            else -> "Captured"
-        }
-        val caption = localizeStatusText(status, lang)
         return FaceGuideLook(
             ovalColor = Color(0xFF4ADE80),
             dashed = false,
             frameColor = Color(0xFF4ADE80),
-            chipText = chip,
-            caption = caption,
+            chipText = s.capturedChip,
+            caption = s.localizeStatus(status),
             captionColor = Color(0xFF15803D)
         )
     }
     val text = status.lowercase()
     return when {
         text.contains("successfully") || (text.contains("face detected") && !text.contains("no face") && !text.contains("multiple") && !text.contains("hold still")) -> {
-            val chip = when (lang) {
-                "mr" -> "चेहरा ओळखला"
-                "hi" -> "चेहरा पहचाना"
-                else -> "Face detected"
-            }
-            val caption = when (lang) {
-                "mr" -> "चेहरा यशस्वीपणे ओळखला"
-                "hi" -> "चेहरा सफलतापूर्वक पहचाना गया"
-                else -> "Face detected successfully"
-            }
             FaceGuideLook(
                 ovalColor = Color(0xFF4ADE80),
                 dashed = false,
                 frameColor = Color(0xFF4ADE80),
-                chipText = chip,
-                caption = caption,
+                chipText = s.faceDetectedChip,
+                caption = s.faceDetectedSuccessCaption,
                 captionColor = Color(0xFF15803D)
             )
         }
         text.contains("multiple") -> {
-            val chip = when (lang) {
-                "mr" -> "एकापेक्षा जास्त चेहरे"
-                "hi" -> "एक से अधिक चेहरे"
-                else -> "Multiple faces detected"
-            }
-            val caption = when (lang) {
-                "mr" -> "कृपया कॅमेऱ्यासमोर फक्त एकच व्यक्ती उभे राहा"
-                "hi" -> "कृपया कैमरे के सामने केवल एक ही व्यक्ति रहें"
-                else -> "Multiple faces detected. Please ensure only one person is visible."
-            }
             FaceGuideLook(
                 ovalColor = Color(0xFFFB7185),
                 dashed = false,
                 frameColor = Color(0xFFFB7185),
-                chipText = chip,
-                caption = caption,
+                chipText = s.multipleFacesChip,
+                caption = s.multipleFacesCaption,
                 captionColor = Color(0xFFE11D48)
             )
         }
         text.contains("hold still") -> {
-            val chip = when (lang) {
-                "mr" -> "स्थिर राहा"
-                "hi" -> "स्थिर रहें"
-                else -> "Hold still"
-            }
-            val caption = when (lang) {
-                "mr" -> "कृपया कॅमेऱ्यासमोर स्थिर उभे राहा"
-                "hi" -> "कृपया कैमरे के सामने स्थिर रहें"
-                else -> "Face detected, hold still for better accuracy"
-            }
             FaceGuideLook(
                 ovalColor = Color(0xFFFB7185),
                 dashed = false,
                 frameColor = Color(0xFFFB7185),
-                chipText = chip,
-                caption = caption,
+                chipText = s.holdStillChip,
+                caption = s.holdStillCaption,
                 captionColor = Color(0xFFE11D48)
             )
         }
         text.contains("no face") -> {
-            val chip = when (lang) {
-                "mr" -> "चेहरा शोधत आहे..."
-                "hi" -> "चेहरा ढूंढ रहे हैं..."
-                else -> "Looking for face..."
-            }
-            val caption = when (lang) {
-                "mr" -> "चेहरा आढळला नाही. पुन्हा प्रयत्न करा."
-                "hi" -> "कोई चेहरा नहीं मिला। पुनः प्रयास करें।"
-                else -> "No face detected. Tap Retake to try again."
-            }
             FaceGuideLook(
                 ovalColor = Color.White.copy(alpha = 0.85f),
                 dashed = true,
                 frameColor = Color(0xFFCBD5E1),
-                chipText = chip,
-                caption = caption,
+                chipText = s.lookingForFaceChip,
+                caption = s.noFaceCaption,
                 captionColor = Color(0xFFE11D48)
             )
         }
         else -> {
-            val chip = when (lang) {
-                "mr" -> "चेहरा शोधत आहे..."
-                "hi" -> "चेहरा ढूंढ रहे हैं..."
-                else -> "Looking for face..."
-            }
             FaceGuideLook(
                 ovalColor = Color.White.copy(alpha = 0.85f),
                 dashed = true,
                 frameColor = Color(0xFFCBD5E1),
-                chipText = chip,
-                caption = localizeStatusText(status, lang),
+                chipText = s.lookingForFaceChip,
+                caption = s.localizeStatus(status),
                 captionColor = Color(0xFF64748B)
             )
         }
     }
 }
+
 
 @Composable
 fun AttendanceKioskScreen(
@@ -418,6 +273,7 @@ fun AttendanceKioskScreen(
         when (currentLanguage) {
             "mr" -> Locale("mr")
             "hi" -> Locale("hi")
+            "gu" -> Locale("gu")
             else -> Locale("en")
         }
     }
@@ -1290,89 +1146,43 @@ private fun AccessStatusCard(
 ) {
     if (cameraAllowed && locationAllowed && gpsEnabled && isOnline && !waitingToSend) return
 
-    val allowText = when (currentLanguage) {
-        "mr" -> "परवानगी द्या"
-        "hi" -> "अनुमति दें"
-        else -> "Allow"
-    }
-    val settingsText = when (currentLanguage) {
-        "mr" -> "सेटिंग्ज"
-        "hi" -> "सेटिंग्स"
-        else -> "Settings"
-    }
+    val s = LangManager.getStrings(currentLanguage)
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         if (!cameraAllowed) {
-            val msg = when (currentLanguage) {
-                "mr" -> "कॅमेरा परवानगी बंद आहे. हजेरीसाठी कॅमेरा आवश्यक आहे."
-                "hi" -> "कैमरा अनुमति बंद है। उपस्थिति के लिए कैमरा आवश्यक है।"
-                else -> "Camera access is off. Face attendance needs the camera."
-            }
             StatusRow(
-                message = msg,
-                action = allowText,
+                message = s.cameraPermissionOff,
+                action = s.allow,
                 onAction = onAllowCamera,
-                secondaryAction = settingsText,
+                secondaryAction = s.settings,
                 onSecondary = onOpenAppSettings
             )
         }
         if (!locationAllowed) {
-            val msg = when (currentLanguage) {
-                "mr" -> "लोकेशन परवानगी बंद आहे. हजेरीसाठी GPS आवश्यक आहे."
-                "hi" -> "लोकेशन अनुमति बंद है। उपस्थिति के लिए GPS आवश्यक है।"
-                else -> "Location access is off. Attendance needs GPS."
-            }
             StatusRow(
-                message = msg,
-                action = allowText,
+                message = s.locationPermissionOff,
+                action = s.allow,
                 onAction = onAllowLocation,
-                secondaryAction = settingsText,
+                secondaryAction = s.settings,
                 onSecondary = onOpenAppSettings
             )
         } else if (!gpsEnabled) {
-            val msg = when (currentLanguage) {
-                "mr" -> "GPS बंद आहे. हजेरी नोंदवण्यासाठी लोकेशन चालू करा."
-                "hi" -> "GPS बंद है। उपस्थिति दर्ज करने के लिए लोकेशन चालू करें।"
-                else -> "GPS is turned off. Turn on location to mark attendance."
-            }
-            val turnOnText = when (currentLanguage) {
-                "mr" -> "GPS चालू करा"
-                "hi" -> "GPS चालू करें"
-                else -> "Turn on GPS"
-            }
             StatusRow(
-                message = msg,
-                action = turnOnText,
+                message = s.gpsTurnedOff,
+                action = s.turnOnGps,
                 onAction = onOpenGpsSettings
             )
         }
         if (!isOnline) {
-            val msg = if (waitingToSend) {
-                when (currentLanguage) {
-                    "mr" -> "इंटरनेट नाही. हजेरी या फोनवर सेव्ह केली आहे आणि इंटरनेट आल्यावर सिंक होईल."
-                    "hi" -> "इंटरनेट नहीं है। उपस्थिति इस फ़ोन में सहेजी गई है और इंटरनेट आने पर सिंक हो जाएगी।"
-                    else -> "No internet. Check-in and check-out are saved on this phone and will sync when internet is back."
-                }
-            } else {
-                when (currentLanguage) {
-                    "mr" -> "इंटरनेट कनेक्शन नाही."
-                    "hi" -> "इंटरनेट कनेक्शन नहीं है।"
-                    else -> "No internet connection."
-                }
-            }
+            val msg = if (waitingToSend) s.noInternetWaiting else s.noInternet
             StatusRow(
                 message = msg,
                 action = null,
                 onAction = null
             )
         } else if (waitingToSend) {
-            val msg = when (currentLanguage) {
-                "mr" -> "इंटरनेट पुन्हा सुरू झाले. सेव्ह केलेली हजेरी पाठवत आहे."
-                "hi" -> "इंटरनेट पुनः जुड़ गया। सहेजी गई उपस्थिति भेज रहे हैं।"
-                else -> "Internet is back. Sending saved attendance."
-            }
             StatusRow(
-                message = msg,
+                message = s.internetRestoredSending,
                 action = null,
                 onAction = null
             )
@@ -1511,7 +1321,8 @@ private fun ProfileDialog(
                             listOf(
                                 "en" to stringResource(R.string.lang_en),
                                 "mr" to stringResource(R.string.lang_mr),
-                                "hi" to stringResource(R.string.lang_hi)
+                                "hi" to stringResource(R.string.lang_hi),
+                                "gu" to stringResource(R.string.lang_gu)
                             ).forEach { (code, name) ->
                                 val selected = currentLanguage == code
                                 Box(
