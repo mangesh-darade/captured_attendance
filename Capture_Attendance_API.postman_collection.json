@@ -1,0 +1,459 @@
+{
+  "info": {
+    "_postman_id": "c1f7b830-4e3a-4a2b-98dc-a6d5c4b3e2f1",
+    "name": "ElintOm - Capture Attendance Mobile & Kiosk API",
+    "description": "Complete Postman collection for the Android Capture Attendance application and Kiosk terminals. Includes Setup, Authentication, Face Recognition Attendance Punch (Captured button), Geofencing, and Diagnostic logging.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://192.168.0.239/ElintOm_PHP_8.5/",
+      "type": "string",
+      "description": "Server Base URL (Local LAN IP or Live Domain)"
+    },
+    {
+      "key": "auth_token",
+      "value": "",
+      "type": "string",
+      "description": "Mobile session JWT token (auto-populated upon login)"
+    },
+    {
+      "key": "android_code",
+      "value": "LH022",
+      "type": "string",
+      "description": "Merchant terminal unique pairing code"
+    }
+  ],
+  "item": [
+    {
+      "name": "01 - Setup & Code Pairing",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "android_code",
+              "value": "{{android_code}}",
+              "description": "Terminal unique activation code",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}attendance_api/setup",
+          "host": [
+            "{{base_url}}attendance_api"
+          ],
+          "path": [
+            "setup"
+          ]
+        },
+        "description": "Called on first app run to resolve the terminal's assigned merchant tenant store URL and store name using the unique Android Code."
+      },
+      "response": []
+    },
+    {
+      "name": "02 - App Bootstrap & Init Data",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}attendance_api/init",
+          "host": [
+            "{{base_url}}attendance_api"
+          ],
+          "path": [
+            "init"
+          ]
+        },
+        "description": "Fetches tenant store branding, logo URLs, site name, server time, and predicted default attendance type (check_in / check_out)."
+      },
+      "response": []
+    },
+    {
+      "name": "03 - Employee Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "    try {",
+              "        var res = pm.response.json();",
+              "        if (res.token) {",
+              "            pm.collectionVariables.set('auth_token', res.token);",
+              "            console.log('Saved auth_token to collection variable: ' + res.token);",
+              "        }",
+              "    } catch (e) {",
+              "        console.error('Failed to parse login token', e);",
+              "    }",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "phone",
+              "value": "9876543210",
+              "description": "Employee phone number or username",
+              "type": "text"
+            },
+            {
+              "key": "password",
+              "value": "password123",
+              "description": "Employee password",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}attendance_api/login",
+          "host": [
+            "{{base_url}}attendance_api"
+          ],
+          "path": [
+            "login"
+          ]
+        },
+        "description": "Logs in the device user/employee. Returns a 30-day mobile authentication token used for subsequent punches and location checks."
+      },
+      "response": []
+    },
+    {
+      "name": "04 - Derive Location Preview (Geofence Preview)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "latitude",
+              "value": "18.520430",
+              "type": "text"
+            },
+            {
+              "key": "longitude",
+              "value": "73.856744",
+              "type": "text"
+            },
+            {
+              "key": "landmark",
+              "value": "Shivajinagar, Pune, Maharashtra",
+              "type": "text"
+            },
+            {
+              "key": "selected_derived_location",
+              "value": "",
+              "description": "Empty to auto-resolve or pass selected warehouse name",
+              "type": "text"
+            },
+            {
+              "key": "descriptor",
+              "value": "",
+              "description": "Optional 128-float face JSON descriptor for user auto-recognition",
+              "type": "text"
+            },
+            {
+              "key": "token",
+              "value": "{{auth_token}}",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}attendance_api/derive_location_preview",
+          "host": [
+            "{{base_url}}attendance_api"
+          ],
+          "path": [
+            "derive_location_preview"
+          ]
+        },
+        "description": "Pre-resolves which warehouse/site geofence the device is currently inside and predicts whether the next punch should be check_in or check_out."
+      },
+      "response": []
+    },
+    {
+      "name": "05 - Store Attendance (Captured Button Action) ⭐",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "descriptor",
+              "value": "[-0.19762055575847626,0.16568055748939514,0.053712740540504456,-0.03466305136680603,-0.002033424098044634,-0.07463400065898895,-0.042085256427526474,-0.07133248448371887,0.1414271742105484,-0.030665209516882896,0.23748920857906342,0.03288399428129196,-0.20062239468097687,-0.16882315278053284,-0.039368320256471634,0.07616011053323746,-0.18292276561260223,-0.14248399436473846,-0.06650564074516296,-0.16627146303653717,0.03934980556368828,-0.010326099582016468,0.006239007692784071,0.013989831320941448,-0.17172053456306458,-0.3383674919605255,-0.04595224931836128,-0.1257670819759369,0.005156978033483028,-0.0885939672589302,-0.002922037150710821,-0.04250352829694748,-0.18291030824184418,-0.05755582079291344,-0.03330893814563751,0.1279323548078537,0.006967691704630852,0.047607243061065674,0.13278916478157043,-0.016216307878494263,-0.07644815742969513,-0.009837988764047623,0.0759379118680954,0.3588232100009918,0.18421220779418945,0.07791777700185776,-0.010678637772798538,0.00518687954172492,0.14057989418506622,-0.2722702622413635,0.07826335728168488,0.14082534611225128,0.09609115123748779,0.028885331004858017,0.16564062237739563,-0.12536883354187012,-0.026309408247470856,0.05037287622690201,-0.20599739253520966,0.04691785201430321,-0.03403177857398987,-0.0017470828024670482,-0.0638890415430069,-0.06637600809335709,0.2523714005947113,0.16616830229759216,-0.12685006856918335,-0.0707474797964096,0.13939712941646576,-0.1756582260131836,0.0011408941354602575,0.051178090274333954,-0.03083609603345394,-0.1528419852256775,-0.2763121724128723,0.07260596007108688,0.4567960798740387,0.1393343210220337,-0.15335968136787415,0.04029645770788193,-0.1260368674993515,-0.09057736396789551,0.08745364844799042,-0.03811654821038246,-0.13886483013629913,0.09928968548774719,-0.16688507795333862,0.050834283232688904,0.16760817170143127,0.02612776681780815,-0.035173188894987106,0.180700421333313,0.002357714343816042,0.0507921501994133,0.06119401007890701,0.03627539798617363,-0.17205139994621277,-0.005145625211298466,-0.1540197879076004,-0.03656650707125664,0.045017216354608536,-0.12211348861455917,0.005213101394474506,0.016370408236980438,-0.13039752840995789,0.09061863273382187,0.07282984256744385,0.0024291318841278553,-0.07250144332647324,0.07318331301212311,-0.12824313342571259,-0.07101760059595108,0.12188413739204407,-0.2692287266254425,0.1913968324661255,0.14581765234470367,-0.02627359703183174,0.19174912571907043,0.0732923075556755,0.011235794983804226,-0.030160725116729736,-0.0315190888941288,-0.026025481522083282,-0.07625389844179153,-0.04113942012190819,-0.03555706888437271,0.09049727022647858,0.05334848538041115]",
+              "description": "128-float registered face embedding array (Matched to user Mangesh Darade)",
+              "type": "text"
+            },
+            {
+              "key": "latitude",
+              "value": "18.520430",
+              "description": "Current device GPS latitude",
+              "type": "text"
+            },
+            {
+              "key": "longitude",
+              "value": "73.856744",
+              "description": "Current device GPS longitude",
+              "type": "text"
+            },
+            {
+              "key": "landmark",
+              "value": "Shivajinagar, Pune, Maharashtra",
+              "description": "Reverse-geocoded physical address",
+              "type": "text"
+            },
+            {
+              "key": "attendance_type",
+              "value": "check_in",
+              "description": "check_in, check_out, or auto",
+              "type": "text"
+            },
+            {
+              "key": "selected_derived_location",
+              "value": "Main Warehouse",
+              "description": "Selected or auto-derived site / warehouse name",
+              "type": "text"
+            },
+            {
+              "key": "notes",
+              "value": "On-time arrival",
+              "description": "Optional notes entered by user (max 500 chars)",
+              "type": "text"
+            },
+            {
+              "key": "token",
+              "value": "{{auth_token}}",
+              "description": "Optional login token (or passed via Authorization Bearer)",
+              "type": "text"
+            },
+            {
+              "key": "punched_at",
+              "value": "",
+              "description": "Optional timestamp (YYYY-MM-DD HH:MM:SS) used when syncing offline queue",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}attendance_api/store",
+          "host": [
+            "{{base_url}}attendance_api"
+          ],
+          "path": [
+            "store"
+          ]
+        },
+        "description": "⭐ THIS IS THE EXACT API HIT WHEN CLICKING THE 'CAPTURED' BUTTON.\n\nSubmits face descriptor embeddings, coordinates, landmark, and attendance type (IN / OUT). The backend verifies the face against registered employee vectors, confirms the geofence perimeter, and records the check-in or check-out transaction in `sma_attendance`."
+      },
+      "response": []
+    },
+    {
+      "name": "06 - Area Tracking Log (Geofence Boundary)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "derived_location",
+              "value": "Main Warehouse",
+              "type": "text"
+            },
+            {
+              "key": "latitude",
+              "value": "18.520430",
+              "type": "text"
+            },
+            {
+              "key": "longitude",
+              "value": "73.856744",
+              "type": "text"
+            },
+            {
+              "key": "token",
+              "value": "{{auth_token}}",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}attendance_api/area_log",
+          "host": [
+            "{{base_url}}attendance_api"
+          ],
+          "path": [
+            "area_log"
+          ]
+        },
+        "description": "Periodically called by the background geofence worker to log when an employee steps inside or outside their active warehouse boundary."
+      },
+      "response": []
+    },
+    {
+      "name": "07 - Client Diagnostic & Error Log",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "android_code",
+              "value": "{{android_code}}",
+              "type": "text"
+            },
+            {
+              "key": "device_name",
+              "value": "Samsung Galaxy Tab A9",
+              "type": "text"
+            },
+            {
+              "key": "app_version",
+              "value": "1.0",
+              "type": "text"
+            },
+            {
+              "key": "log_level",
+              "value": "ERROR",
+              "type": "text"
+            },
+            {
+              "key": "tag",
+              "value": "AttendanceStore",
+              "type": "text"
+            },
+            {
+              "key": "message",
+              "value": "Network timeout occurred while uploading offline attendance batch",
+              "type": "text"
+            },
+            {
+              "key": "details",
+              "value": "java.net.SocketTimeoutException: failed to connect to 192.168.0.239 after 10000ms",
+              "type": "text"
+            },
+            {
+              "key": "token",
+              "value": "{{auth_token}}",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}attendance_api/client_log",
+          "host": [
+            "{{base_url}}attendance_api"
+          ],
+          "path": [
+            "client_log"
+          ]
+        },
+        "description": "Transmits crash logs, exceptions, and diagnostics from the device to the server. Writes to server log files and `sma_android_logs` DB table."
+      },
+      "response": []
+    },
+    {
+      "name": "08 - Employee Logout",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "urlencoded",
+          "urlencoded": [
+            {
+              "key": "token",
+              "value": "{{auth_token}}",
+              "type": "text"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}attendance_api/logout",
+          "host": [
+            "{{base_url}}attendance_api"
+          ],
+          "path": [
+            "logout"
+          ]
+        },
+        "description": "Logs out the employee session from the kiosk terminal."
+      },
+      "response": []
+    }
+  ]
+}
