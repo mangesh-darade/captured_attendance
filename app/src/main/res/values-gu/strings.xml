@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ElintOm@</string>
+    <string name="title_capture_attendance">ElintOm હાજરી</string>
+    <string name="btn_in">અંદર (IN)</string>
+    <string name="btn_out">બહાર (OUT)</string>
+    <string name="label_last_activity_prefix">છેલ્લી નોંધ: </string>
+    <string name="label_notes">નોંધ (Notes)</string>
+    <string name="placeholder_notes">નોંધ દાખલ કરો...</string>
+    <string name="default_status">કોઈ ચહેરો મળ્યો નથી</string>
+    <string name="powered_by">Powered by</string>
+    <string name="btn_capture">કેપ્ચર કરો</string>
+    <string name="btn_scanning">સ્કેન થઈ રહ્યું છે...</string>
+    <string name="btn_submitting">નોંધણી ચાલુ છે...</string>
+    <string name="btn_retake">ફરી લો</string>
+    <string name="multiple_locations_hint">નજીકમાં એક કરતાં વધુ સ્થાનો મળ્યાં. કૃપા કરીને એક સ્થાન પસંદ કરો.</string>
+    <string name="select_nearby_location">નજીકનું સ્થાન પસંદ કરો</string>
+    <string name="label_standing_landmark">તમારું વર્તમાન સ્થાન</string>
+    <string name="label_language">ભાષા</string>
+    <string name="lang_en">English</string>
+    <string name="lang_mr">मराठी</string>
+    <string name="lang_hi">हिंदी</string>
+    <string name="lang_gu">ગુજરાતી</string>
+    <string name="status_face_ready">ચહેરો સ્કેનિંગ તૈયાર છે.</string>
+    <string name="status_scanning_face">ચહેરો સ્કેન કરી રહ્યાં છે...</string>
+    <string name="status_hold_still">કૃપા કરીને કેમેરા સામે સ્થિર રહો</string>
+    <string name="status_submitting">હાજરી નોંધાઈ રહી છે...</string>
+    <string name="status_fetching_location">લાઇવ લોકેશન શોધી રહ્યાં છે...</string>
+    <string name="status_location_unavailable">લોકેશન ઉપલબ્ધ નથી</string>
+    <string name="label_attendance_in">ચેક ઇન (IN)</string>
+    <string name="label_attendance_out">ચેક આઉટ (OUT)</string>
+    <string name="label_last_activity">છેલ્લી પ્રવૃત્તિ</string>
+    <string name="label_selected_location">પસંદ કરેલ સ્થાન</string>
+    <string name="label_settings">સેટિંગ્સ</string>
+    <string name="btn_save">સાચવો</string>
+    <string name="btn_cancel">રદ કરો</string>
+    <string name="btn_close">બંધ કરો</string>
+    <string name="btn_logout">લોગ આઉટ</string>
+    <string name="label_profile">પ્રોફાઇલ</string>
+    <string name="label_auto_submit">ઓટો સબમિટ</string>
+    <string name="label_server_url">સર્વર URL</string>
+    <string name="msg_success_in">ચેક ઇન સફળ થયું!</string>
+    <string name="msg_success_out">ચેક આઉટ સફળ થયું!</string>
+    <string name="msg_face_not_recognized">ચહેરો ઓળખાયો નથી. કૃપા કરીને કેમેરા સામે સીધા જુઓ.</string>
+    <string name="msg_already_checked_in">પહેલેથી ચેક ઇન થયેલું છે. ચેક આઉટ કરવા માટે OUT પસંદ કરો.</string>
+    <string name="msg_outside_geofence">તમે રજિસ્ટર્ડ ઓફિસ / સાઇટ પરિસરની બહાર છો.</string>
+</resources>
