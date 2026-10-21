@@ -1,6 +1,7 @@
 package com.example.ui
 
 import com.example.lang.LangManager
+import com.example.lang.AppStrings
 import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -123,7 +124,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -269,6 +269,7 @@ fun AttendanceKioskScreen(
     var showDiagnosticsDialog by remember { mutableStateOf(false) }
 
     val currentLanguage = uiState.appLanguage
+    val s = LangManager.getStrings(currentLanguage)
     val locale = remember(currentLanguage) {
         when (currentLanguage) {
             "mr" -> Locale("mr")
@@ -483,7 +484,8 @@ fun AttendanceKioskScreen(
                             LocationPickerSection(
                                 options = uiState.locationOptions,
                                 selectedLocation = uiState.selectedLocation,
-                                onLocationSelected = { viewModel.onLocationSelected(it) }
+                                onLocationSelected = { viewModel.onLocationSelected(it) },
+                                s = s
                             )
                         }
 
@@ -505,7 +507,7 @@ fun AttendanceKioskScreen(
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Text(
-                                    text = stringResource(R.string.status_fetching_location),
+                                    text = s.fetchingLocation,
                                     style = TextStyle(
                                         fontFamily = InterFontFamily,
                                         fontSize = 12.sp,
@@ -526,15 +528,15 @@ fun AttendanceKioskScreen(
                                 }
                                 val locationDisplayText = when {
                                     siteName != null && landmarkText.isNotBlank() -> {
-                                        stringResource(R.string.label_standing_landmark) + ": " + siteName + " (" + landmarkText + ")"
+                                        s.standingLandmark + ": " + siteName + " (" + landmarkText + ")"
                                     }
                                     siteName != null -> {
-                                        stringResource(R.string.label_standing_landmark) + ": " + siteName
+                                        s.standingLandmark + ": " + siteName
                                     }
                                     landmarkText.isNotBlank() -> {
-                                        stringResource(R.string.label_standing_landmark) + ": " + landmarkText
+                                        s.standingLandmark + ": " + landmarkText
                                     }
-                                    else -> stringResource(R.string.label_standing_landmark)
+                                    else -> s.standingLandmark
                                 }
                                 Text(
                                     text = locationDisplayText,
@@ -552,7 +554,8 @@ fun AttendanceKioskScreen(
 
                         ToggleIndicators(
                             activeToggle = uiState.activeToggle,
-                            onToggleSelected = { viewModel.onToggleClicked(it) }
+                            onToggleSelected = { viewModel.onToggleClicked(it) },
+                            s = s
                         )
                     }
                 }
@@ -588,7 +591,7 @@ fun AttendanceKioskScreen(
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = stringResource(R.string.label_last_activity_prefix),
+                                text = s.lastActivityPrefix,
                                 style = TextStyle(
                                     fontFamily = InterFontFamily,
                                     fontSize = 13.sp,
@@ -620,6 +623,7 @@ fun AttendanceKioskScreen(
                     NotesSection(
                         notes = uiState.notes,
                         onNotesChanged = { viewModel.onNotesChanged(it) },
+                        s = s,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(14.dp)
@@ -739,7 +743,7 @@ fun AttendanceKioskScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = stringResource(R.string.powered_by),
+                                text = s.poweredBy,
                                 style = TextStyle(
                                     fontFamily = InterFontFamily,
                                     fontSize = 12.sp,
@@ -767,7 +771,8 @@ fun AttendanceKioskScreen(
                 buttonState = uiState.buttonState,
                 isPosting = uiState.isPosting,
                 isLocationReady = isLocationReady,
-                onCaptureClick = { viewModel.onCaptureButtonClicked() }
+                onCaptureClick = { viewModel.onCaptureButtonClicked() },
+                s = s
             )
         }
 
@@ -846,12 +851,12 @@ fun AttendanceKioskScreen(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
                     ) {
-                        Text(stringResource(R.string.btn_logout), fontFamily = InterFontFamily, color = Color.White)
+                        Text(s.logoutButton, fontFamily = InterFontFamily, color = Color.White)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { confirmLogout = false }) {
-                        Text(stringResource(R.string.btn_cancel), fontFamily = InterFontFamily, color = TextMuted)
+                        Text(s.cancelButton, fontFamily = InterFontFamily, color = TextMuted)
                     }
                 }
             )
@@ -1265,11 +1270,12 @@ private fun ProfileDialog(
     onDismiss: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
+    val s = LangManager.getStrings(currentLanguage)
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.btn_close), fontFamily = InterFontFamily, color = TextMuted)
+                Text(s.closeButton, fontFamily = InterFontFamily, color = TextMuted)
             }
         },
         text = {
@@ -1308,7 +1314,7 @@ private fun ProfileDialog(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(
-                            text = stringResource(R.string.label_language),
+                            text = s.languageLabel,
                             fontFamily = InterFontFamily,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -1319,10 +1325,10 @@ private fun ProfileDialog(
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             listOf(
-                                "en" to stringResource(R.string.lang_en),
-                                "mr" to stringResource(R.string.lang_mr),
-                                "hi" to stringResource(R.string.lang_hi),
-                                "gu" to stringResource(R.string.lang_gu)
+                                "en" to "English",
+                                "mr" to "मराठी",
+                                "hi" to "हिंदी",
+                                "gu" to "ગુજરાતી"
                             ).forEach { (code, name) ->
                                 val selected = currentLanguage == code
                                 Box(
@@ -1367,14 +1373,14 @@ private fun ProfileDialog(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = stringResource(R.string.label_auto_submit),
+                                text = s.autoSubmitLabel,
                                 fontFamily = InterFontFamily,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = TextPrimary
                             )
                             Text(
-                                text = if (autoSubmit) "Marks attendance when your face is ready" else "Press Capture to mark attendance",
+                                text = if (autoSubmit) s.autoSubmitReady else s.autoSubmitManual,
                                 fontFamily = InterFontFamily,
                                 fontSize = 12.sp,
                                 color = TextMuted
@@ -1401,7 +1407,7 @@ private fun ProfileDialog(
                         tint = Color.White
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(stringResource(R.string.btn_logout), fontFamily = InterFontFamily, color = Color.White)
+                    Text(s.logoutButton, fontFamily = InterFontFamily, color = Color.White)
                 }
             }
         }
@@ -1412,7 +1418,8 @@ private fun ProfileDialog(
 private fun LocationPickerSection(
     options: List<com.example.data.model.LocationOption>,
     selectedLocation: com.example.data.model.LocationOption?,
-    onLocationSelected: (com.example.data.model.LocationOption) -> Unit
+    onLocationSelected: (com.example.data.model.LocationOption) -> Unit,
+    s: AppStrings
 ) {
     if (options.isEmpty()) return
 
@@ -1455,7 +1462,7 @@ private fun LocationPickerSection(
                         )
                     }
                     Text(
-                        text = selectedLocation?.displayLabel() ?: stringResource(R.string.select_nearby_location),
+                        text = selectedLocation?.displayLabel() ?: s.selectLocation,
                         style = TextStyle(
                             fontFamily = InterFontFamily,
                             fontSize = 14.sp,
@@ -1517,7 +1524,7 @@ private fun LocationPickerSection(
                     modifier = Modifier.size(15.dp)
                 )
                 Text(
-                    text = stringResource(R.string.multiple_locations_hint),
+                    text = s.multipleLocationsHint,
                     style = TextStyle(
                         fontFamily = InterFontFamily,
                         fontSize = 12.sp,
@@ -1533,7 +1540,8 @@ private fun LocationPickerSection(
 @Composable
 private fun ToggleIndicators(
     activeToggle: String, // "IN" or "OUT"
-    onToggleSelected: (String) -> Unit
+    onToggleSelected: (String) -> Unit,
+    s: AppStrings
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1569,7 +1577,7 @@ private fun ToggleIndicators(
                     modifier = Modifier.size(18.dp)
                 )
                 Text(
-                    text = stringResource(R.string.btn_in),
+                    text = s.inButton,
                     style = TextStyle(
                         fontFamily = InterFontFamily,
                         fontSize = 15.sp,
@@ -1607,7 +1615,7 @@ private fun ToggleIndicators(
                     modifier = Modifier.size(18.dp)
                 )
                 Text(
-                    text = stringResource(R.string.btn_out),
+                    text = s.outButton,
                     style = TextStyle(
                         fontFamily = InterFontFamily,
                         fontSize = 15.sp,
@@ -1624,6 +1632,7 @@ private fun ToggleIndicators(
 private fun NotesSection(
     notes: String,
     onNotesChanged: (String) -> Unit,
+    s: AppStrings,
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -1638,7 +1647,7 @@ private fun NotesSection(
                 modifier = Modifier.size(17.dp)
             )
             Text(
-                text = stringResource(R.string.label_notes),
+                text = s.notesLabel,
                 style = TextStyle(
                     fontFamily = InterFontFamily,
                     fontSize = 13.sp,
@@ -1660,7 +1669,7 @@ private fun NotesSection(
         ) {
             if (notes.isEmpty()) {
                 Text(
-                    text = stringResource(R.string.placeholder_notes),
+                    text = s.notesPlaceholder,
                     style = TextStyle(
                         fontFamily = InterFontFamily,
                         fontSize = 13.sp,
@@ -1688,7 +1697,8 @@ private fun StickyBottomBar(
     buttonState: AttendanceButtonState,
     isPosting: Boolean,
     isLocationReady: Boolean,
-    onCaptureClick: () -> Unit
+    onCaptureClick: () -> Unit,
+    s: AppStrings
 ) {
     Surface(
         modifier = Modifier
@@ -1726,7 +1736,7 @@ private fun StickyBottomBar(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = stringResource(R.string.status_fetching_location),
+                        text = s.fetchingLocation,
                         style = TextStyle(
                             fontFamily = InterFontFamily,
                             fontSize = 15.sp,
@@ -1742,10 +1752,10 @@ private fun StickyBottomBar(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     val buttonLabel = when (buttonState) {
-                        AttendanceButtonState.CAPTURE -> stringResource(R.string.btn_capture)
-                        AttendanceButtonState.SCANNING -> stringResource(R.string.btn_scanning)
-                        AttendanceButtonState.SUBMITTING -> stringResource(R.string.btn_submitting)
-                        AttendanceButtonState.RETAKE -> stringResource(R.string.btn_retake)
+                        AttendanceButtonState.CAPTURE -> s.captureButton
+                        AttendanceButtonState.SCANNING -> s.scanningButton
+                        AttendanceButtonState.SUBMITTING -> s.submittingButton
+                        AttendanceButtonState.RETAKE -> s.retakeButton
                     }
                     Text(
                         text = buttonLabel,

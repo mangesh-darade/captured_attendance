@@ -27,6 +27,29 @@ object HindiStrings : AppStrings {
     override val lookingForFaceChip: String = "चेहरा ढूंढ रहे हैं..."
     override val noFaceCaption: String = "कोई चेहरा नहीं मिला। पुनः प्रयास करें।"
 
+    // UI Screen Labels & Buttons
+    override val inButton: String = "IN"
+    override val outButton: String = "OUT"
+    override val captureButton: String = "उपस्थिति दर्ज करें (Capture)"
+    override val scanningButton: String = "स्कैन हो रहा है..."
+    override val submittingButton: String = "दर्ज हो रहा है..."
+    override val retakeButton: String = "पुनः फोटो लें (Retake)"
+    override val closeButton: String = "बंद करें"
+    override val logoutButton: String = "लॉग आउट"
+    override val cancelButton: String = "रद्द करें"
+    override val notesLabel: String = "नोट्स (Notes)"
+    override val notesPlaceholder: String = "वैकल्पिक टिप्पणी (उदा. देर से आगमन, फील्ड विजिट)"
+    override val languageLabel: String = "भाषा चुनें (Language)"
+    override val autoSubmitLabel: String = "स्वचालित उपस्थिति (Auto Submit)"
+    override val autoSubmitReady: String = "चेहरा तैयार होने पर उपस्थिति स्वतः दर्ज होगी"
+    override val autoSubmitManual: String = "उपस्थिति दर्ज करने के लिए कैप्चर दबाएं"
+    override val selectLocation: String = "निकटतम स्थान चुनें"
+    override val multipleLocationsHint: String = "पास के कई स्थान मिले। कृपया एक स्थान चुनें।"
+    override val standingLandmark: String = "पास में स्थित"
+    override val fetchingLocation: String = "GPS लोकेशन प्राप्त कर रहे हैं..."
+    override val lastActivityPrefix: String = "पिछली गतिविधि"
+    override val poweredBy: String = "Powered by"
+
     override fun localizeStatus(status: String): String {
         if (status.isBlank()) return status
         val lower = status.lowercase()

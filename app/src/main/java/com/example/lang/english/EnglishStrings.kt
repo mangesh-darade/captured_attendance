@@ -27,6 +27,29 @@ object EnglishStrings : AppStrings {
     override val lookingForFaceChip: String = "Looking for face..."
     override val noFaceCaption: String = "No face detected. Tap Retake to try again."
 
+    // UI Screen Labels & Buttons
+    override val inButton: String = "IN"
+    override val outButton: String = "OUT"
+    override val captureButton: String = "Capture Attendance"
+    override val scanningButton: String = "Scanning..."
+    override val submittingButton: String = "Submitting..."
+    override val retakeButton: String = "Retake"
+    override val closeButton: String = "Close"
+    override val logoutButton: String = "Log out"
+    override val cancelButton: String = "Cancel"
+    override val notesLabel: String = "Notes"
+    override val notesPlaceholder: String = "Optional notes (e.g. reason for late check-in, field visit)"
+    override val languageLabel: String = "Language / भाषा"
+    override val autoSubmitLabel: String = "Auto Submit"
+    override val autoSubmitReady: String = "Marks attendance when your face is ready"
+    override val autoSubmitManual: String = "Press Capture to mark attendance"
+    override val selectLocation: String = "Select nearby location"
+    override val multipleLocationsHint: String = "Multiple nearby locations found. Please select one location."
+    override val standingLandmark: String = "Standing near"
+    override val fetchingLocation: String = "Acquiring GPS location..."
+    override val lastActivityPrefix: String = "Last Activity"
+    override val poweredBy: String = "Powered by"
+
     override fun localizeStatus(status: String): String = status
 
     override fun localizeToast(message: String): String = message

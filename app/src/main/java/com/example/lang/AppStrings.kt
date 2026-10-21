@@ -32,6 +32,29 @@ interface AppStrings {
     val lookingForFaceChip: String
     val noFaceCaption: String
 
+    // UI Screen Labels & Buttons (Decoupled from Android R.string)
+    val inButton: String
+    val outButton: String
+    val captureButton: String
+    val scanningButton: String
+    val submittingButton: String
+    val retakeButton: String
+    val closeButton: String
+    val logoutButton: String
+    val cancelButton: String
+    val notesLabel: String
+    val notesPlaceholder: String
+    val languageLabel: String
+    val autoSubmitLabel: String
+    val autoSubmitReady: String
+    val autoSubmitManual: String
+    val selectLocation: String
+    val multipleLocationsHint: String
+    val standingLandmark: String
+    val fetchingLocation: String
+    val lastActivityPrefix: String
+    val poweredBy: String
+
     // Dynamic message localizers
     fun localizeStatus(status: String): String
     fun localizeToast(message: String): String

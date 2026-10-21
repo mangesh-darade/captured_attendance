@@ -27,6 +27,29 @@ object GujratiStrings : AppStrings {
     override val lookingForFaceChip: String = "ચહેરો શોધી રહ્યાં છીએ..."
     override val noFaceCaption: String = "કોઈ ચહેરો મળ્યો નથી. ફરી પ્રયાસ કરો."
 
+    // UI Screen Labels & Buttons
+    override val inButton: String = "IN"
+    override val outButton: String = "OUT"
+    override val captureButton: String = "હાજરી નોંધો (Capture)"
+    override val scanningButton: String = "સ્કેન થઈ રહ્યું છે..."
+    override val submittingButton: String = "નોંધાઈ રહ્યું છે..."
+    override val retakeButton: String = "ફરીથી ફોટો લો (Retake)"
+    override val closeButton: String = "બંધ કરો"
+    override val logoutButton: String = "લૉગ આઉટ"
+    override val cancelButton: String = "રદ કરો"
+    override val notesLabel: String = "નોંધ (Notes)"
+    override val notesPlaceholder: String = "વૈકલ્પિક નોંધ (દા.ત. મોડા આવવાનું કારણ)"
+    override val languageLabel: String = "ભાષા પસંદ કરો (Language)"
+    override val autoSubmitLabel: String = "સ્વચાલિત હાજરી (Auto Submit)"
+    override val autoSubmitReady: String = "ચહેરો ઓળખાતાં જ હાજરી આપોઆપ નોંધાઈ જશે"
+    override val autoSubmitManual: String = "હાજરી નોંધવા માટે કેપ્ચર દબાવો"
+    override val selectLocation: String = "નજીકનું સ્થળ પસંદ કરો"
+    override val multipleLocationsHint: String = "નજીકના અનેક સ્થળો મળ્યા. કૃપા કરીને એક પસંદ કરો."
+    override val standingLandmark: String = "નજીક ઊભા છો"
+    override val fetchingLocation: String = "GPS લોકેશન શોધી રહ્યાં છીએ..."
+    override val lastActivityPrefix: String = "છેલ્લી પ્રવૃત્તિ"
+    override val poweredBy: String = "Powered by"
+
     override fun localizeStatus(status: String): String {
         if (status.isBlank()) return status
         val lower = status.lowercase()
