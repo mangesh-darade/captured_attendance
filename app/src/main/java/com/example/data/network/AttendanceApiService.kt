@@ -44,6 +44,22 @@ interface AttendanceApiService {
     ): Response<com.example.data.model.TodayAttendanceResponse>
 
     @GET
+    suspend fun getUsersForEnrollment(
+        @Url url: String,
+        @Query("token") token: String
+    ): Response<com.example.data.model.EnrollmentUsersResponse>
+
+    @FormUrlEncoded
+    @POST
+    suspend fun registerFace(
+        @Url url: String,
+        @Field("token") token: String,
+        @Field("user_id") userId: Int,
+        @Field("descriptor") descriptor: String,
+        @Field("photo") photo: String? = null
+    ): Response<com.example.data.model.RegisterFaceResponse>
+
+    @GET
     suspend fun getCapturedPage(@Url url: String): Response<ResponseBody>
 
     @FormUrlEncoded

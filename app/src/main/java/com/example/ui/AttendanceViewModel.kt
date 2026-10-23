@@ -18,6 +18,9 @@ import com.example.data.model.ToastMessage
 import com.example.data.model.ToastType
 import com.example.data.model.TodayAttendanceSummary
 import com.example.data.model.AttendanceRecordItem
+import com.example.data.model.EnrollmentUserItem
+import com.example.data.model.EnrollmentUsersResponse
+import com.example.data.model.RegisterFaceResponse
 import com.example.data.network.NetworkClientManager
 import com.example.data.util.AppLogger
 import com.example.face.FaceDetectionResult
@@ -98,7 +101,16 @@ data class AttendanceUiState(
     val isTodayAttendanceLoading: Boolean = false,
     val todaySummary: TodayAttendanceSummary = TodayAttendanceSummary(),
     val todayRecords: List<AttendanceRecordItem> = emptyList(),
-    val todayAttendanceError: String? = null
+    val todayAttendanceError: String? = null,
+    val showFaceEnrollment: Boolean = false,
+    val isEnrollmentLoading: Boolean = false,
+    val enrollmentUsers: List<EnrollmentUserItem> = emptyList(),
+    val selectedEnrollmentUser: EnrollmentUserItem? = null,
+    val enrollmentScanCount: Int = 0,
+    val enrollmentFacePhoto: Bitmap? = null,
+    val isRegisteringFace: Boolean = false,
+    val enrollmentSuccessMsg: String? = null,
+    val enrollmentErrorMsg: String? = null
 )
 
 class AttendanceViewModel(application: Application) : AndroidViewModel(application) {
@@ -356,6 +368,181 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 }
             }
         }
+    }
+
+    private val enrollmentDescriptors = mutableListOf<List<Float>>()
+
+    fun openFaceEnrollment() {
+        enrollmentDescriptors.clear()
+        _uiState.update {
+            it.copy(
+                showFaceEnrollment = true,
+                isEnrollmentLoading = true,
+                selectedEnrollmentUser = null,
+                enrollmentScanCount = 0,
+                enrollmentFacePhoto = null,
+                enrollmentSuccessMsg = null,
+                enrollmentErrorMsg = null
+            )
+        }
+        fetchEnrollmentUsers()
+    }
+
+    fun closeFaceEnrollment() {
+        enrollmentDescriptors.clear()
+        _uiState.update {
+            it.copy(
+                showFaceEnrollment = false,
+                selectedEnrollmentUser = null,
+                enrollmentScanCount = 0,
+                enrollmentFacePhoto = null,
+                enrollmentSuccessMsg = null,
+                enrollmentErrorMsg = null
+            )
+        }
+    }
+
+    fun fetchEnrollmentUsers() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isEnrollmentLoading = true, enrollmentErrorMsg = null) }
+            val base = _uiState.value.baseUrl
+            val token = _uiState.value.deviceToken
+            try {
+                val response = networkClientManager.attendanceService.getUsersForEnrollment(
+                    url = "${base}attendance_api/users_for_enrollment",
+                    token = token
+                )
+                val body = response.body()
+                if (response.isSuccessful && body?.status.equals("success", ignoreCase = true)) {
+                    _uiState.update {
+                        it.copy(
+                            isEnrollmentLoading = false,
+                            enrollmentUsers = body?.users ?: emptyList()
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isEnrollmentLoading = false,
+                            enrollmentErrorMsg = body?.message ?: "Failed to load employees"
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isEnrollmentLoading = false,
+                        enrollmentErrorMsg = e.localizedMessage ?: "Network error"
+                    )
+                }
+            }
+        }
+    }
+
+    fun selectEnrollmentUser(user: EnrollmentUserItem?) {
+        enrollmentDescriptors.clear()
+        _uiState.update {
+            it.copy(
+                selectedEnrollmentUser = user,
+                enrollmentScanCount = 0,
+                enrollmentFacePhoto = null,
+                enrollmentSuccessMsg = null,
+                enrollmentErrorMsg = null
+            )
+        }
+    }
+
+    fun submitFaceRegistration() {
+        val user = _uiState.value.selectedEnrollmentUser ?: return
+        if (enrollmentDescriptors.isEmpty()) {
+            _uiState.update { it.copy(enrollmentErrorMsg = "No face scan captured yet") }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRegisteringFace = true, enrollmentErrorMsg = null) }
+            val base = _uiState.value.baseUrl
+            val token = _uiState.value.deviceToken
+            val avg = computeAverageDescriptor(enrollmentDescriptors)
+            val descriptorJson = JSONArray(avg).toString()
+
+            val photoBase64: String? = _uiState.value.enrollmentFacePhoto?.let { bmp ->
+                try {
+                    val baos = java.io.ByteArrayOutputStream()
+                    bmp.compress(Bitmap.CompressFormat.JPEG, 85, baos)
+                    android.util.Base64.encodeToString(baos.toByteArray(), android.util.Base64.NO_WRAP)
+                } catch (e: Exception) {
+                    null
+                }
+            }
+
+            try {
+                val response = networkClientManager.attendanceService.registerFace(
+                    url = "${base}attendance_api/register_face",
+                    token = token,
+                    userId = user.id,
+                    descriptor = descriptorJson,
+                    photo = photoBase64
+                )
+                val body = response.body()
+                if (response.isSuccessful && body?.status.equals("success", ignoreCase = true)) {
+                    val updatedUsers = _uiState.value.enrollmentUsers.map {
+                        if (it.id == user.id) it.copy(hasFaceEnrolled = true) else it
+                    }
+                    _uiState.update {
+                        it.copy(
+                            isRegisteringFace = false,
+                            enrollmentSuccessMsg = body?.message ?: "Face enrolled successfully!",
+                            enrollmentUsers = updatedUsers
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isRegisteringFace = false,
+                            enrollmentErrorMsg = body?.message ?: "Failed to register face"
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isRegisteringFace = false,
+                        enrollmentErrorMsg = e.localizedMessage ?: "Connection error"
+                    )
+                }
+            }
+        }
+    }
+
+    private fun handleEnrollmentDetection(result: FaceDetectionResult) {
+        if (_uiState.value.isRegisteringFace || _uiState.value.enrollmentSuccessMsg != null) return
+        if (result.isGoodFace && enrollmentDescriptors.size < 4) {
+            enrollmentDescriptors.add(result.descriptor)
+            val photo = result.alignedFace ?: _uiState.value.enrollmentFacePhoto
+            _uiState.update {
+                it.copy(
+                    enrollmentScanCount = enrollmentDescriptors.size,
+                    enrollmentFacePhoto = photo
+                )
+            }
+            if (enrollmentDescriptors.size >= 4) {
+                try { shutterSound.play(MediaActionSound.SHUTTER_CLICK) } catch (e: Exception) {}
+            }
+        }
+    }
+
+    private fun computeAverageDescriptor(descriptors: List<List<Float>>): List<Float> {
+        if (descriptors.isEmpty()) return emptyList()
+        val size = descriptors[0].size
+        val avg = FloatArray(size)
+        for (desc in descriptors) {
+            for (i in 0 until minOf(size, desc.size)) {
+                avg[i] += desc[i]
+            }
+        }
+        val count = descriptors.size.toFloat()
+        return avg.map { it / count }
     }
 
     fun updateSettings(newUrl: String, autoSubmit: Boolean = false) {
@@ -762,6 +949,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
      * Detection loop 900 ms result handling
      */
     fun onDetectionTick(result: FaceDetectionResult) {
+        if (_uiState.value.showFaceEnrollment && _uiState.value.selectedEnrollmentUser != null) {
+            handleEnrollmentDetection(result)
+            return
+        }
         if (_uiState.value.capturedBitmap != null) return
         val now = System.currentTimeMillis()
 

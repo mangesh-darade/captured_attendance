@@ -3,6 +3,7 @@ package com.example.ui
 import com.example.lang.LangManager
 import com.example.lang.AppStrings
 import android.Manifest
+import android.graphics.Bitmap
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -51,6 +52,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Login
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.PathEffect
@@ -74,6 +76,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import com.example.data.model.AttendanceRecordItem
 import com.example.data.model.TodayAttendanceSummary
+import com.example.data.model.EnrollmentUserItem
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -83,6 +86,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -827,6 +831,10 @@ fun AttendanceKioskScreen(
                 onLanguageSelected = { viewModel.onLanguageSelected(it) },
                 autoSubmit = uiState.isAutoSubmitEnabled,
                 onAutoSubmitChange = { viewModel.setAutoSubmit(it) },
+                onFaceEnrollmentClick = {
+                    showProfile = false
+                    viewModel.openFaceEnrollment()
+                },
                 onDismiss = { showProfile = false },
                 onLogoutClick = {
                     showProfile = false
@@ -843,6 +851,23 @@ fun AttendanceKioskScreen(
                 errorMessage = uiState.todayAttendanceError,
                 onRefresh = { viewModel.fetchTodayAttendance() },
                 onDismiss = { viewModel.closeTodayAttendance() }
+            )
+        }
+
+        if (uiState.showFaceEnrollment) {
+            FaceEnrollmentDialog(
+                users = uiState.enrollmentUsers,
+                isLoading = uiState.isEnrollmentLoading,
+                selectedUser = uiState.selectedEnrollmentUser,
+                scanCount = uiState.enrollmentScanCount,
+                facePhoto = uiState.enrollmentFacePhoto,
+                isRegistering = uiState.isRegisteringFace,
+                successMsg = uiState.enrollmentSuccessMsg,
+                errorMsg = uiState.enrollmentErrorMsg,
+                onSelectUser = { viewModel.selectEnrollmentUser(it) },
+                onRefreshUsers = { viewModel.fetchEnrollmentUsers() },
+                onSubmitRegistration = { viewModel.submitFaceRegistration() },
+                onDismiss = { viewModel.closeFaceEnrollment() }
             )
         }
 
@@ -1304,6 +1329,7 @@ private fun ProfileDialog(
     onLanguageSelected: (String) -> Unit,
     autoSubmit: Boolean,
     onAutoSubmitChange: (Boolean) -> Unit,
+    onFaceEnrollmentClick: () -> Unit = {},
     onDismiss: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
@@ -1432,6 +1458,54 @@ private fun ProfileDialog(
                                     checkedTrackColor = BrandPrimary
                                 )
                             )
+                        }
+                    }
+
+                    // Face Enrollment button for Admin
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF0FDF4),
+                        border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onFaceEnrollmentClick() }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFDCFCE7)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PhotoCamera,
+                                    contentDescription = null,
+                                    tint = Color(0xFF15803D),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Face Enrollment",
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextPrimary
+                                )
+                                Text(
+                                    text = "Register employee face biometric",
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 12.sp,
+                                    color = TextMuted
+                                )
+                            }
                         }
                     }
                 }
@@ -1832,6 +1906,553 @@ private fun AttendanceRecordRow(record: AttendanceRecordItem) {
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
                     color = statusColor
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun FaceEnrollmentDialog(
+    users: List<EnrollmentUserItem>,
+    isLoading: Boolean,
+    selectedUser: EnrollmentUserItem?,
+    scanCount: Int,
+    facePhoto: Bitmap?,
+    isRegistering: Boolean,
+    successMsg: String?,
+    errorMsg: String?,
+    onSelectUser: (EnrollmentUserItem?) -> Unit,
+    onRefreshUsers: () -> Unit,
+    onSubmitRegistration: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredUsers = remember(users, searchQuery) {
+        if (searchQuery.isBlank()) users
+        else users.filter {
+            it.name.contains(searchQuery.trim(), ignoreCase = true) ||
+                    (it.phone ?: "").contains(searchQuery.trim())
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            if (selectedUser != null && scanCount >= 4 && successMsg == null && !isRegistering) {
+                Button(
+                    onClick = onSubmitRegistration,
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
+                ) {
+                    Text("Register Face", fontFamily = InterFontFamily, color = Color.White)
+                }
+            } else if (successMsg != null) {
+                Button(
+                    onClick = onDismiss,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D))
+                ) {
+                    Text("Done", fontFamily = InterFontFamily, color = Color.White)
+                }
+            } else {
+                TextButton(onClick = onDismiss) {
+                    Text("Close", fontFamily = InterFontFamily, color = TextMuted)
+                }
+            }
+        },
+        dismissButton = {
+            if (selectedUser != null && successMsg == null) {
+                TextButton(onClick = { onSelectUser(null) }) {
+                    Text("Back to list", fontFamily = InterFontFamily, color = TextMuted)
+                }
+            }
+        },
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (selectedUser != null && successMsg == null) {
+                        IconButton(onClick = { onSelectUser(null) }, modifier = Modifier.size(32.dp)) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = TextPrimary
+                            )
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFDCFCE7)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhotoCamera,
+                            contentDescription = null,
+                            tint = Color(0xFF15803D),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = if (selectedUser != null) "Enroll: ${selectedUser.name}" else "Face Enrollment",
+                            fontFamily = InterFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = if (selectedUser != null) "Align face to capture 4 samples" else "Select employee to register face",
+                            fontFamily = InterFontFamily,
+                            fontSize = 11.sp,
+                            color = TextMuted
+                        )
+                    }
+                }
+                if (selectedUser == null) {
+                    IconButton(
+                        onClick = onRefreshUsers,
+                        enabled = !isLoading,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = if (isLoading) TextMuted else BrandPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 220.dp, max = 500.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (selectedUser == null) {
+                    // Stage 1: Employee List & Search
+                    OutlinedTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = {
+                            Text(
+                                text = "Search by name or phone...",
+                                fontFamily = InterFontFamily,
+                                fontSize = 13.sp,
+                                color = TextMuted
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = TextMuted,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        trailingIcon = {
+                            if (searchQuery.isNotEmpty()) {
+                                IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(24.dp)) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Clear",
+                                        tint = TextMuted,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        },
+                        singleLine = true,
+                        shape = RoundedCornerShape(10.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = BrandPrimary,
+                            unfocusedBorderColor = Color(0xFFCBD5E1)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    when {
+                        isLoading -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(180.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                CircularProgressIndicator(color = BrandPrimary, modifier = Modifier.size(32.dp))
+                            }
+                        }
+                        errorMsg != null -> {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = ToastErrorBg,
+                                border = BorderStroke(1.dp, ToastErrorBorder),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        text = errorMsg,
+                                        fontFamily = InterFontFamily,
+                                        fontSize = 12.sp,
+                                        color = ToastErrorText,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    OutlinedButton(onClick = onRefreshUsers) {
+                                        Text("Retry", fontFamily = InterFontFamily, fontSize = 12.sp)
+                                    }
+                                }
+                            }
+                        }
+                        filteredUsers.isEmpty() -> {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(140.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (searchQuery.isNotBlank()) "No employees matching \"$searchQuery\"" else "No employees found",
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 13.sp,
+                                    color = TextMuted
+                                )
+                            }
+                        }
+                        else -> {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(filteredUsers) { user ->
+                                    EnrollmentUserRow(user = user, onSelect = { onSelectUser(user) })
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Stage 2: Camera Face Scan Progress for Selected Employee
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text(
+                                        text = selectedUser.name,
+                                        fontFamily = InterFontFamily,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = TextPrimary
+                                    )
+                                    if (!selectedUser.phone.isNullOrBlank()) {
+                                        Text(
+                                            text = selectedUser.phone,
+                                            fontFamily = InterFontFamily,
+                                            fontSize = 12.sp,
+                                            color = TextMuted
+                                        )
+                                    }
+                                }
+                                val enrolledBg = if (selectedUser.hasFaceEnrolled) Color(0xFFDCFCE7) else Color(0xFFF1F5F9)
+                                val enrolledColor = if (selectedUser.hasFaceEnrolled) Color(0xFF166534) else Color(0xFF64748B)
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(enrolledBg)
+                                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                                ) {
+                                    Text(
+                                        text = if (selectedUser.hasFaceEnrolled) "Enrolled" else "Not Enrolled",
+                                        fontFamily = InterFontFamily,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = enrolledColor
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Progress Section
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Biometric Samples",
+                                fontFamily = InterFontFamily,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = "$scanCount / 4",
+                                fontFamily = InterFontFamily,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (scanCount >= 4) Color(0xFF15803D) else BrandPrimary
+                            )
+                        }
+                        LinearProgressIndicator(
+                            progress = { (scanCount / 4f).coerceIn(0f, 1f) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(8.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                            color = if (scanCount >= 4) Color(0xFF16A34A) else BrandPrimary,
+                            trackColor = Color(0xFFE2E8F0)
+                        )
+                    }
+
+                    // Photo preview / instructions
+                    if (scanCount < 4) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFF1F5F9)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                modifier = Modifier.padding(12.dp)
+                            ) {
+                                Text(
+                                    text = "Look straight into the kiosk camera",
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextPrimary
+                                )
+                                Text(
+                                    text = "Hold still while face-api collects 4 biometric angles (${scanCount}/4 collected)",
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 11.sp,
+                                    color = TextMuted,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    } else {
+                        // 4/4 Complete: Show Photo Preview
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color(0xFFF0FDF4))
+                                .border(1.dp, Color(0xFFBBF7D0), RoundedCornerShape(10.dp))
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            if (facePhoto != null) {
+                                Image(
+                                    bitmap = facePhoto.asImageBitmap(),
+                                    contentDescription = "Captured Face",
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    contentScale = ContentScale.Crop
+                                )
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "4 / 4 Biometric Scans Complete!",
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF15803D)
+                                )
+                                Text(
+                                    text = "Click 'Register Face' below to save to server.",
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF166534)
+                                )
+                            }
+                        }
+                    }
+
+                    // Feedbacks: Registering, Success, Error
+                    if (isRegistering) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = BrandPrimary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Saving face to database...",
+                                fontFamily = InterFontFamily,
+                                fontSize = 12.sp,
+                                color = BrandPrimary
+                            )
+                        }
+                    }
+
+                    if (successMsg != null) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = ToastSuccessBg,
+                            border = BorderStroke(1.dp, ToastSuccessBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = successMsg,
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = ToastSuccessText,
+                                    textAlign = TextAlign.Center
+                                )
+                                OutlinedButton(onClick = { onSelectUser(null) }) {
+                                    Text("Enroll Another Employee", fontFamily = InterFontFamily, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    if (errorMsg != null) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = ToastErrorBg,
+                            border = BorderStroke(1.dp, ToastErrorBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = errorMsg,
+                                fontFamily = InterFontFamily,
+                                fontSize = 12.sp,
+                                color = ToastErrorText,
+                                modifier = Modifier.padding(10.dp),
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun EnrollmentUserRow(user: EnrollmentUserItem, onSelect: () -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = Color(0xFFFAFAFA),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onSelect() }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            val initial = user.name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "U"
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(if (user.hasFaceEnrolled) Color(0xFFDCFCE7) else Color(0xFFE0F2FE)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = initial,
+                    fontFamily = InterFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = if (user.hasFaceEnrolled) Color(0xFF166534) else Color(0xFF0369A1)
+                )
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = user.name,
+                    fontFamily = InterFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (!user.phone.isNullOrBlank()) {
+                    Text(
+                        text = user.phone,
+                        fontFamily = InterFontFamily,
+                        fontSize = 11.sp,
+                        color = TextMuted
+                    )
+                }
+            }
+
+            val badgeBg = if (user.hasFaceEnrolled) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
+            val badgeColor = if (user.hasFaceEnrolled) Color(0xFF166534) else Color(0xFF92400E)
+            val badgeText = if (user.hasFaceEnrolled) "Enrolled" else "Pending"
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(badgeBg)
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = badgeText,
+                    fontFamily = InterFontFamily,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = badgeColor
                 )
             }
         }

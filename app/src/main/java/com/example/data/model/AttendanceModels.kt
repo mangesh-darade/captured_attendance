@@ -212,3 +212,30 @@ data class TodayAttendanceResponse(
     val summary: TodayAttendanceSummary? = null,
     val records: List<AttendanceRecordItem>? = null
 )
+
+@JsonClass(generateAdapter = true)
+data class EnrollmentUserItem(
+    val id: Int = 0,
+    val name: String = "",
+    val phone: String? = null,
+    val email: String? = null,
+    val company: String? = null,
+    val group: String? = null,
+    @Json(name = "has_face_enrolled") val hasFaceEnrolled: Boolean = false
+)
+
+@JsonClass(generateAdapter = true)
+data class EnrollmentUsersResponse(
+    val status: String? = null,
+    val message: String? = null,
+    val total: Int? = null,
+    val users: List<EnrollmentUserItem>? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class RegisterFaceResponse(
+    val status: String? = null,
+    val message: String? = null,
+    @Json(name = "user_id") val userId: Int? = null,
+    @Json(name = "has_face_enrolled") val hasFaceEnrolled: Boolean? = null
+)
