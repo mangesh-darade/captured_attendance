@@ -335,7 +335,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch {
             val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
             val token = _uiState.value.deviceToken
-            if (base.isBlank() || token.isBlank()) return@launch
+            if (base.isBlank() || token.isBlank()) {
+                _uiState.update { it.copy(isTodayAttendanceLoading = false, todayAttendanceError = "Not logged in. Please login first.") }
+                return@launch
+            }
 
             _uiState.update { it.copy(isTodayAttendanceLoading = true, todayAttendanceError = null) }
             try {
@@ -407,6 +410,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             _uiState.update { it.copy(isEnrollmentLoading = true, enrollmentErrorMsg = null) }
             val base = _uiState.value.baseUrl
             val token = _uiState.value.deviceToken
+            if (base.isBlank() || token.isBlank()) {
+                _uiState.update { it.copy(isEnrollmentLoading = false, enrollmentErrorMsg = "Not logged in. Please login first.") }
+                return@launch
+            }
             try {
                 val response = networkClientManager.attendanceService.getUsersForEnrollment(
                     url = "${base}attendance_api/users_for_enrollment",
