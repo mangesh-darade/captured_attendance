@@ -452,6 +452,18 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun retakeEnrollmentScan() {
+        enrollmentDescriptors.clear()
+        _uiState.update {
+            it.copy(
+                enrollmentScanCount = 0,
+                enrollmentFacePhoto = null,
+                enrollmentSuccessMsg = null,
+                enrollmentErrorMsg = null
+            )
+        }
+    }
+
     fun submitFaceRegistration() {
         val user = _uiState.value.selectedEnrollmentUser ?: return
         if (enrollmentDescriptors.isEmpty()) {
