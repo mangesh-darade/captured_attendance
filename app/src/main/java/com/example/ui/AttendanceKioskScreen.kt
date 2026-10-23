@@ -39,6 +39,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -444,14 +445,8 @@ fun AttendanceKioskScreen(
                     tenantSiteName = uiState.tenantSiteName,
                     userName = uiState.loggedInUserName,
                     onLogoLongClick = { viewModel.onSettingsClicked() },
-                    onTodayAttendanceClick = if (uiState.deviceToken.isNotBlank()) {
-                        { viewModel.openTodayAttendance() }
-                    } else null,
-                    onProfileClick = if (uiState.deviceToken.isNotBlank()) {
-                        { currentTab = KioskBottomTab.SETTINGS }
-                    } else {
-                        null
-                    },
+                    onTodayAttendanceClick = null,
+                    onProfileClick = null,
                     showBackButton = (currentTab == KioskBottomTab.CAPTURE),
                     onBackClick = { currentTab = KioskBottomTab.HOME }
                 )
@@ -1266,13 +1261,11 @@ private fun HeaderBar(
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
-            if (onProfileClick != null) {
-                ProfileAvatar(
-                    name = userName,
-                    onClick = onProfileClick,
-                    size = 36.dp
-                )
-            }
+            ProfileAvatar(
+                name = userName,
+                onClick = null,
+                size = 36.dp
+            )
         }
     }
 }
@@ -3770,17 +3763,17 @@ private fun KioskBottomNavigationBar(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(68.dp),
+            .navigationBarsPadding(),
         color = Color.White,
-        shadowElevation = 10.dp,
+        shadowElevation = 12.dp,
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
     ) {
         Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 14.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             // 1. Home Tab
@@ -3791,35 +3784,34 @@ private fun KioskBottomNavigationBar(
                 modifier = Modifier
                     .weight(1f)
                     .clickable { onTabSelected(KioskBottomTab.HOME) }
-                    .padding(vertical = 2.dp)
+                    .padding(vertical = 4.dp)
             ) {
                 Box(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(if (isHome) Color(0xFFE6FFFA) else Color.Transparent)
-                        .then(if (isHome) Modifier.border(1.5.dp, Color(0xFF80DFDF), CircleShape) else Modifier),
+                        .background(if (isHome) Color(0xFFE0F2FE) else Color.Transparent)
+                        .then(if (isHome) Modifier.border(1.5.dp, Color(0xFF38BDF8), CircleShape) else Modifier),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Home,
                         contentDescription = "Home",
-                        tint = if (isHome) Color(0xFF006D77) else Color(0xFF64748B),
+                        tint = if (isHome) Color(0xFF0284C7) else Color(0xFF64748B),
                         modifier = Modifier.size(22.dp)
                     )
                 }
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = when (currentLanguage) {
-                        "mr" -> "मुख्य"
                         "hi" -> "होम"
                         "gu" -> "હોમ"
                         else -> "Home"
                     },
                     fontFamily = InterFontFamily,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = if (isHome) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isHome) Color(0xFF006D77) else Color(0xFF64748B)
+                    color = if (isHome) Color(0xFF0284C7) else Color(0xFF64748B)
                 )
             }
 
@@ -3835,25 +3827,24 @@ private fun KioskBottomNavigationBar(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(46.dp)
+                        .size(52.dp)
                         .clip(CircleShape)
                         .background(
                             Brush.linearGradient(
-                                colors = if (isCapture) listOf(Color(0xFF006D77), Color(0xFF0A9396))
-                                else listOf(Color(0xFF0F766E), Color(0xFF14B8A6))
+                                colors = listOf(Color(0xFF006D77), Color(0xFF0A9396))
                             )
                         )
-                        .then(if (isCapture) Modifier.border(2.5.dp, Color(0xFF83C5BE), CircleShape) else Modifier),
+                        .border(2.5.dp, if (isCapture) Color(0xFF83C5BE) else Color.White, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.PhotoCamera,
                         contentDescription = "Capture Attendance",
                         tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = when (currentLanguage) {
                         "mr" -> "अटेंडन्स"
@@ -3862,9 +3853,9 @@ private fun KioskBottomNavigationBar(
                         else -> "Capture"
                     },
                     fontFamily = InterFontFamily,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (isCapture) Color(0xFF006D77) else Color(0xFF64748B)
+                    color = if (isCapture) Color(0xFF006D77) else Color(0xFF0F766E)
                 )
             }
 
@@ -3876,35 +3867,34 @@ private fun KioskBottomNavigationBar(
                 modifier = Modifier
                     .weight(1f)
                     .clickable { onTabSelected(KioskBottomTab.SETTINGS) }
-                    .padding(vertical = 2.dp)
+                    .padding(vertical = 4.dp)
             ) {
                 Box(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(if (isSettings) Color(0xFFE6FFFA) else Color.Transparent)
-                        .then(if (isSettings) Modifier.border(1.5.dp, Color(0xFF80DFDF), CircleShape) else Modifier),
+                        .background(if (isSettings) Color(0xFFE0F2FE) else Color.Transparent)
+                        .then(if (isSettings) Modifier.border(1.5.dp, Color(0xFF38BDF8), CircleShape) else Modifier),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Settings,
                         contentDescription = "Settings",
-                        tint = if (isSettings) Color(0xFF006D77) else Color(0xFF64748B),
+                        tint = if (isSettings) Color(0xFF0284C7) else Color(0xFF64748B),
                         modifier = Modifier.size(22.dp)
                     )
                 }
-                Spacer(modifier = Modifier.height(2.dp))
+                Spacer(modifier = Modifier.height(3.dp))
                 Text(
                     text = when (currentLanguage) {
-                        "mr" -> "सेटिंग्ज"
                         "hi" -> "सेटिंग्स"
                         "gu" -> "સેટિંગ્સ"
                         else -> "Settings"
                     },
                     fontFamily = InterFontFamily,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = if (isSettings) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isSettings) Color(0xFF006D77) else Color(0xFF64748B)
+                    color = if (isSettings) Color(0xFF0284C7) else Color(0xFF64748B)
                 )
             }
         }
@@ -3978,18 +3968,6 @@ private fun KioskHomeScreen(
                                     fontWeight = FontWeight.SemiBold,
                                     color = if (uiState.isAdmin) Color(0xFF0369A1) else Color(0xFF475569),
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                )
-                            }
-                            val displayPhone = uiState.savedPhone.trim()
-                            val isDuplicate = displayPhone.equals("admin", ignoreCase = true) ||
-                                displayPhone.equals(uiState.loggedInUserName.trim(), ignoreCase = true) ||
-                                displayPhone.equals("employee", ignoreCase = true)
-                            if (displayPhone.isNotBlank() && !isDuplicate) {
-                                Text(
-                                    text = displayPhone,
-                                    fontFamily = InterFontFamily,
-                                    fontSize = 12.sp,
-                                    color = TextMuted
                                 )
                             }
                         }
