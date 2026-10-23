@@ -66,7 +66,10 @@ import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
@@ -266,6 +269,12 @@ private fun faceGuideLook(status: String, captured: Boolean, lang: String): Face
 }
 
 
+enum class KioskBottomTab {
+    HOME,
+    CAPTURE,
+    SETTINGS
+}
+
 @Composable
 fun AttendanceKioskScreen(
     viewModel: AttendanceViewModel,
@@ -274,6 +283,7 @@ fun AttendanceKioskScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsState()
+    var currentTab by rememberSaveable { mutableStateOf(KioskBottomTab.HOME) }
     var showProfile by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
     var showDiagnosticsDialog by remember { mutableStateOf(false) }
@@ -433,7 +443,7 @@ fun AttendanceKioskScreen(
                         { viewModel.openTodayAttendance() }
                     } else null,
                     onProfileClick = if (uiState.deviceToken.isNotBlank()) {
-                        { showProfile = true }
+                        { currentTab = KioskBottomTab.SETTINGS }
                     } else {
                         null
                     }
@@ -465,16 +475,45 @@ fun AttendanceKioskScreen(
                         onRegister = { viewModel.submitFaceRegistration() }
                     )
                 } else {
-                    // Scrollable body
-                    val scrollState = rememberScrollState()
-                    Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .verticalScroll(scrollState)
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        when (currentTab) {
+                            KioskBottomTab.HOME -> {
+                                KioskHomeScreen(
+                                    uiState = uiState,
+                                    currentLanguage = currentLanguage,
+                                    onNavigateToCapture = { currentTab = KioskBottomTab.CAPTURE },
+                                    onOpenHistory = { viewModel.openTodayAttendance() },
+                                    onOpenFaceEnrollment = { viewModel.openFaceEnrollment() },
+                                    onOpenSettings = { currentTab = KioskBottomTab.SETTINGS }
+                                )
+                            }
+                            KioskBottomTab.SETTINGS -> {
+                                KioskSettingsScreen(
+                                    uiState = uiState,
+                                    currentLanguage = currentLanguage,
+                                    onLanguageSelected = { viewModel.onLanguageSelected(it) },
+                                    onAutoSubmitChange = { viewModel.setAutoSubmit(it) },
+                                    onFaceEnrollmentClick = { viewModel.openFaceEnrollment() },
+                                    onSettingsClicked = { viewModel.onSettingsClicked() },
+                                    onViewLogs = { showDiagnosticsDialog = true },
+                                    onLogoutClick = { confirmLogout = true }
+                                )
+                            }
+                            KioskBottomTab.CAPTURE -> {
+                                Column(modifier = Modifier.fillMaxSize()) {
+                                    val scrollState = rememberScrollState()
+                                    Column(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxWidth()
+                                            .verticalScroll(scrollState)
+                                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
                 AccessStatusCard(
                     cameraAllowed = uiState.cameraAllowed,
                     locationAllowed = uiState.locationAllowed,
@@ -692,7 +731,7 @@ fun AttendanceKioskScreen(
                                 .border(2.dp, faceLook.frameColor, RoundedCornerShape(20.dp))
                         ) {
                             CameraPreviewView(
-                                isCameraActive = uiState.isCameraActive,
+                                isCameraActive = uiState.isCameraActive && currentTab == KioskBottomTab.CAPTURE,
                                 onCameraStarted = { viewModel.onCameraStarted() },
                                 onCameraFailed = { viewModel.onCameraFailed(it) },
                                 canAcceptFrame = { faceBridge.canAcceptFrame() },
@@ -804,17 +843,27 @@ fun AttendanceKioskScreen(
                 Spacer(modifier = Modifier.height(4.dp))
             }
 
-            // 9) Sticky bottom bar (white, top border #DBE5F1, upward shadow)
-            val isLocationReady = uiState.currentLat != null && uiState.currentLng != null && !uiState.isLocationLoading
-            StickyBottomBar(
-                buttonState = uiState.buttonState,
-                isPosting = uiState.isPosting,
-                isLocationReady = isLocationReady,
-                onCaptureClick = { viewModel.onCaptureButtonClicked() },
-                s = s
-            )
-        }
-    }
+                                    val isLocationReady = uiState.currentLat != null && uiState.currentLng != null && !uiState.isLocationLoading
+                                    StickyBottomBar(
+                                        buttonState = uiState.buttonState,
+                                        isPosting = uiState.isPosting,
+                                        isLocationReady = isLocationReady,
+                                        onCaptureClick = { viewModel.onCaptureButtonClicked() },
+                                        s = s
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 3-Tab Bottom Navigation Bar (Home, Capture, Settings)
+                    KioskBottomNavigationBar(
+                        selectedTab = currentTab,
+                        onTabSelected = { currentTab = it },
+                        currentLanguage = currentLanguage
+                    )
+                }
+            }
 
         // 10) Toasts at top: success (#DFF0D8 bg, #3C763D text, 7s), error (#F2DEDE bg, #A94442 text, 5.5s), info (#D9EDF7 bg, #31708F text)
         AnimatedVisibility(
@@ -1969,7 +2018,7 @@ private fun AttendanceRecordRow(record: AttendanceRecordItem) {
 private fun EnrollmentUserListDialog(
     users: List<EnrollmentUserItem>,
     isLoading: Boolean,
-    errorMsg: String?,
+      errorMsg: String?,
     onSelectUser: (EnrollmentUserItem) -> Unit,
     onRefreshUsers: () -> Unit,
     onDismiss: () -> Unit
@@ -3713,5 +3762,787 @@ private fun SettingsDialog(
             },
             modifier = Modifier.testTag("settings_dialog")
         )
+    }
+}
+
+@Composable
+private fun KioskBottomNavigationBar(
+    selectedTab: KioskBottomTab,
+    onTabSelected: (KioskBottomTab) -> Unit,
+    currentLanguage: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(68.dp),
+        color = Color.White,
+        shadowElevation = 10.dp,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 14.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 1. Home Tab
+            val isHome = selectedTab == KioskBottomTab.HOME
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onTabSelected(KioskBottomTab.HOME) }
+                    .padding(vertical = 2.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(if (isHome) Color(0xFFE6FFFA) else Color.Transparent)
+                        .then(if (isHome) Modifier.border(1.5.dp, Color(0xFF80DFDF), CircleShape) else Modifier),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Home,
+                        contentDescription = "Home",
+                        tint = if (isHome) Color(0xFF006D77) else Color(0xFF64748B),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = when (currentLanguage) {
+                        "mr" -> "मुख्य"
+                        "hi" -> "होम"
+                        "gu" -> "હોમ"
+                        else -> "Home"
+                    },
+                    fontFamily = InterFontFamily,
+                    fontSize = 11.sp,
+                    fontWeight = if (isHome) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isHome) Color(0xFF006D77) else Color(0xFF64748B)
+                )
+            }
+
+            // 2. Capture Attendance Tab (Center round prominent action button)
+            val isCapture = selectedTab == KioskBottomTab.CAPTURE
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .weight(1.2f)
+                    .clickable { onTabSelected(KioskBottomTab.CAPTURE) }
+                    .padding(vertical = 2.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.linearGradient(
+                                colors = if (isCapture) listOf(Color(0xFF006D77), Color(0xFF0A9396))
+                                else listOf(Color(0xFF0F766E), Color(0xFF14B8A6))
+                            )
+                        )
+                        .then(if (isCapture) Modifier.border(2.5.dp, Color(0xFF83C5BE), CircleShape) else Modifier),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PhotoCamera,
+                        contentDescription = "Capture Attendance",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = when (currentLanguage) {
+                        "mr" -> "अटेंडन्स"
+                        "hi" -> "अटेंडेंस"
+                        "gu" -> "હાજરી"
+                        else -> "Capture"
+                    },
+                    fontFamily = InterFontFamily,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isCapture) Color(0xFF006D77) else Color(0xFF64748B)
+                )
+            }
+
+            // 3. Settings Tab
+            val isSettings = selectedTab == KioskBottomTab.SETTINGS
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onTabSelected(KioskBottomTab.SETTINGS) }
+                    .padding(vertical = 2.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(if (isSettings) Color(0xFFE6FFFA) else Color.Transparent)
+                        .then(if (isSettings) Modifier.border(1.5.dp, Color(0xFF80DFDF), CircleShape) else Modifier),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = if (isSettings) Color(0xFF006D77) else Color(0xFF64748B),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = when (currentLanguage) {
+                        "mr" -> "सेटिंग्ज"
+                        "hi" -> "सेटिंग्स"
+                        "gu" -> "સેટિંગ્સ"
+                        else -> "Settings"
+                    },
+                    fontFamily = InterFontFamily,
+                    fontSize = 11.sp,
+                    fontWeight = if (isSettings) FontWeight.Bold else FontWeight.Medium,
+                    color = if (isSettings) Color(0xFF006D77) else Color(0xFF64748B)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun KioskHomeScreen(
+    uiState: AttendanceUiState,
+    currentLanguage: String,
+    onNavigateToCapture: () -> Unit,
+    onOpenHistory: () -> Unit,
+    onOpenFaceEnrollment: () -> Unit,
+    onOpenSettings: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // 1. Hero User Greeting Card
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, CardBorder),
+            shadowElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    ProfileAvatar(
+                        name = uiState.loggedInUserName,
+                        size = 50.dp
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Hello, ${uiState.loggedInUserName.ifBlank { "User" }}",
+                            fontFamily = InterFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp,
+                            color = Color(0xFF0F172A),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (uiState.isAdmin) Color(0xFFE0F2FE) else Color(0xFFF1F5F9)
+                            ) {
+                                Text(
+                                    text = if (uiState.isAdmin) "Admin" else "Employee",
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (uiState.isAdmin) Color(0xFF0369A1) else Color(0xFF475569),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                            if (uiState.savedPhone.isNotBlank()) {
+                                Text(
+                                    text = uiState.savedPhone,
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 12.sp,
+                                    color = TextMuted
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 2. Today's Attendance Status Banner
+        val isCheckedIn = uiState.lastActivityText.contains("check-in", ignoreCase = true) || uiState.lastActivityText.contains("in", ignoreCase = true)
+        val hasActivity = uiState.lastActivityText.isNotBlank() && uiState.lastActivityText != "--"
+
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = if (isCheckedIn) Color(0xFFF0FDF4) else if (hasActivity) Color(0xFFF0F9FF) else Color(0xFFFFFBEB),
+            border = BorderStroke(
+                1.dp,
+                if (isCheckedIn) Color(0xFFBBF7D0) else if (hasActivity) Color(0xFFBAE6FD) else Color(0xFFFDE68A)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "TODAY'S STATUS",
+                        fontFamily = InterFontFamily,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF64748B),
+                        letterSpacing = 0.5.sp
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (isCheckedIn) Color(0xFF15803D) else if (hasActivity) Color(0xFF0284C7) else Color(0xFFD97706)
+                    ) {
+                        Text(
+                            text = if (isCheckedIn) "✓ CHECKED IN" else if (hasActivity) "CHECKED OUT" else "NOT CHECKED IN",
+                            fontFamily = InterFontFamily,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+
+                Text(
+                    text = if (hasActivity) {
+                        localizeActivityText(uiState.lastActivityText, currentLanguage)
+                    } else {
+                        "You haven't marked attendance today yet."
+                    },
+                    fontFamily = InterFontFamily,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF0F172A)
+                )
+
+                if (uiState.currentLandmark.isNotBlank() || uiState.selectedLocation != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Place,
+                            contentDescription = null,
+                            tint = Color(0xFF0F766E),
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Text(
+                            text = uiState.selectedLocation?.pureName() ?: uiState.currentLandmark,
+                            fontFamily = InterFontFamily,
+                            fontSize = 12.sp,
+                            color = Color(0xFF0F766E),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
+
+        // 3. Primary CTA: "Mark Attendance (Camera Scan)"
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = BrandPrimary,
+            shadowElevation = 3.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onNavigateToCapture() }
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PhotoCamera,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Mark Attendance",
+                            fontFamily = InterFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Tap to open camera & facial scan",
+                            fontFamily = InterFontFamily,
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.85f)
+                        )
+                    }
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = "Go",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+
+        // 4. Quick Services Grid (2 Columns)
+        Text(
+            text = "Quick Actions",
+            fontFamily = InterFontFamily,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF475569)
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Card 1: Today's History
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, CardBorder),
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onOpenHistory() }
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE0F2FE)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            tint = Color(0xFF0369A1),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Text(
+                        text = "Today's Log",
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "View in/out timestamps",
+                        fontFamily = InterFontFamily,
+                        fontSize = 11.sp,
+                        color = TextMuted
+                    )
+                }
+            }
+
+            // Card 2: Face Biometric Registration
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, CardBorder),
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable { onOpenFaceEnrollment() }
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFDCFCE7)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = Color(0xFF15803D),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Text(
+                        text = "Face Biometric",
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = "Register / update scan",
+                        fontFamily = InterFontFamily,
+                        fontSize = 11.sp,
+                        color = TextMuted
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun KioskSettingsScreen(
+    uiState: AttendanceUiState,
+    currentLanguage: String,
+    onLanguageSelected: (String) -> Unit,
+    onAutoSubmitChange: (Boolean) -> Unit,
+    onFaceEnrollmentClick: () -> Unit,
+    onSettingsClicked: () -> Unit,
+    onViewLogs: () -> Unit,
+    onLogoutClick: () -> Unit
+) {
+    val scrollState = rememberScrollState()
+    val s = LangManager.getStrings(currentLanguage)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // 1. Account Info Card
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, CardBorder),
+            shadowElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ProfileAvatar(name = uiState.loggedInUserName, size = 48.dp)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = uiState.loggedInUserName.ifBlank { "User" },
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = if (uiState.isAdmin) "Administrator account" else "Employee account",
+                        fontFamily = InterFontFamily,
+                        fontSize = 12.sp,
+                        color = TextMuted
+                    )
+                    if (uiState.tenantSiteName != null) {
+                        Text(
+                            text = "Site: ${uiState.tenantSiteName}",
+                            fontFamily = InterFontFamily,
+                            fontSize = 11.sp,
+                            color = BrandPrimary
+                        )
+                    }
+                }
+            }
+        }
+
+        // 2. Face Enrollment Tile
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = Color(0xFFF0FDF4),
+            border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onFaceEnrollmentClick() }
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFDCFCE7)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PhotoCamera,
+                        contentDescription = null,
+                        tint = Color(0xFF15803D),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Face Biometric Enrollment",
+                        fontFamily = InterFontFamily,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = if (uiState.isAdmin) "Manage and register employee faces" else "Register your face for attendance scan",
+                        fontFamily = InterFontFamily,
+                        fontSize = 12.sp,
+                        color = TextMuted
+                    )
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = Color(0xFF15803D),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        // 3. Language Selector Card
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, CardBorder),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = s.languageLabel,
+                    fontFamily = InterFontFamily,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+
+                val languages = listOf(
+                    "en" to "English",
+                    "mr" to "मराठी (Marathi)",
+                    "hi" to "हिंदी (Hindi)",
+                    "gu" to "ગુજરાતી (Gujarati)"
+                )
+
+                languages.forEach { (code, name) ->
+                    val selected = currentLanguage.equals(code, ignoreCase = true)
+                    Surface(
+                        shape = RoundedCornerShape(10.dp),
+                        color = if (selected) Color(0xFFE6FFFA) else Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, if (selected) BrandPrimary else Color(0xFFE2E8F0)),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onLanguageSelected(code) }
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = name,
+                                fontFamily = InterFontFamily,
+                                fontSize = 13.sp,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (selected) BrandPrimary else TextPrimary
+                            )
+                            if (selected) {
+                                Text(
+                                    text = "✓",
+                                    fontFamily = InterFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = BrandPrimary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Auto Submit Switch (Admin Only)
+        if (uiState.isAdmin) {
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, CardBorder),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = s.autoSubmitLabel,
+                            fontFamily = InterFontFamily,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = if (uiState.isAutoSubmitEnabled) s.autoSubmitReady else s.autoSubmitManual,
+                            fontFamily = InterFontFamily,
+                            fontSize = 12.sp,
+                            color = TextMuted
+                        )
+                    }
+                    Switch(
+                        checked = uiState.isAutoSubmitEnabled,
+                        onCheckedChange = onAutoSubmitChange,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = BrandPrimary
+                        )
+                    )
+                }
+            }
+        }
+
+        // 5. Diagnostics & Server Logs
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, CardBorder),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "System Diagnostics",
+                    fontFamily = InterFontFamily,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                OutlinedButton(
+                    onClick = onViewLogs,
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "View App Error & Connection Logs",
+                        fontFamily = InterFontFamily,
+                        fontSize = 12.sp,
+                        color = Color(0xFF334155)
+                    )
+                }
+                if (uiState.isAdmin) {
+                    OutlinedButton(
+                        onClick = onSettingsClicked,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "Configure Server URL",
+                            fontFamily = InterFontFamily,
+                            fontSize = 12.sp,
+                            color = BrandPrimary
+                        )
+                    }
+                }
+            }
+        }
+
+        // 6. Logout Button
+        Button(
+            onClick = onLogoutClick,
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.Logout,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = s.logoutButton,
+                fontFamily = InterFontFamily,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = Color.White
+            )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
     }
 }
