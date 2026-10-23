@@ -813,6 +813,7 @@ fun AttendanceKioskScreen(
         if (showProfile && uiState.deviceToken.isNotBlank()) {
             ProfileDialog(
                 userName = uiState.loggedInUserName,
+                isAdmin = uiState.isAdmin,
                 currentLanguage = uiState.appLanguage,
                 onLanguageSelected = { viewModel.onLanguageSelected(it) },
                 autoSubmit = uiState.isAutoSubmitEnabled,
@@ -1263,6 +1264,7 @@ private fun ProfileAvatar(
 @Composable
 private fun ProfileDialog(
     userName: String,
+    isAdmin: Boolean = false,
     currentLanguage: String,
     onLanguageSelected: (String) -> Unit,
     autoSubmit: Boolean,
@@ -1358,42 +1360,44 @@ private fun ProfileDialog(
                     }
                 }
 
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFF8FAFC),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                if (isAdmin) {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF8FAFC),
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = s.autoSubmitLabel,
-                                fontFamily = InterFontFamily,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                            Text(
-                                text = if (autoSubmit) s.autoSubmitReady else s.autoSubmitManual,
-                                fontFamily = InterFontFamily,
-                                fontSize = 12.sp,
-                                color = TextMuted
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = s.autoSubmitLabel,
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = TextPrimary
+                                )
+                                Text(
+                                    text = if (autoSubmit) s.autoSubmitReady else s.autoSubmitManual,
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 12.sp,
+                                    color = TextMuted
+                                )
+                            }
+                            Switch(
+                                checked = autoSubmit,
+                                onCheckedChange = onAutoSubmitChange,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color.White,
+                                    checkedTrackColor = BrandPrimary
+                                )
                             )
                         }
-                        Switch(
-                            checked = autoSubmit,
-                            onCheckedChange = onAutoSubmitChange,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = BrandPrimary
-                            )
-                        )
                     }
                 }
                 Button(

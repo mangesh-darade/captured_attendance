@@ -100,6 +100,8 @@ data class AttendanceInitData(
     val logoUrl: String? = null,
     @Json(name = "default_attendance_type")
     val defaultAttendanceType: String? = null,
+    @Json(name = "is_admin")
+    val isAdmin: Boolean? = null,
     @Json(name = "server_time")
     val serverTime: String? = null
 ) {
@@ -128,6 +130,8 @@ data class AttendanceLoginResponse(
     val userId: Int? = null,
     @Json(name = "user_name")
     val userName: String? = null,
+    @Json(name = "is_admin")
+    val isAdmin: Boolean? = null,
     val code: String? = null
 )
 

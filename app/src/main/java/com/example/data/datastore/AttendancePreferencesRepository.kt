@@ -46,6 +46,7 @@ class AttendancePreferencesRepository(private val context: Context) {
         val KEY_DEVICE_TOKEN = stringPreferencesKey("device_token")
         val KEY_DEVICE_USER_ID = stringPreferencesKey("device_user_id")
         val KEY_DEVICE_USER_NAME = stringPreferencesKey("device_user_name")
+        val KEY_DEVICE_IS_ADMIN = booleanPreferencesKey("device_is_admin")
         val KEY_LAST_PHONE = stringPreferencesKey("device_last_phone")
         val KEY_SITES = stringPreferencesKey("attendance_sites_json")
         val KEY_OFFLINE_QUEUE = stringPreferencesKey("attendance_offline_queue")
@@ -67,6 +68,7 @@ class AttendancePreferencesRepository(private val context: Context) {
         return if (saved.isNullOrBlank() || saved.contains("qa18.elintom.us")) DEFAULT_BASE_URL else saved
     }
     fun getFastSavedPhone(): String = fastPrefs.getString("last_phone", "") ?: ""
+    fun getFastIsAdmin(): Boolean = fastPrefs.getBoolean("is_admin", false)
 
     fun syncFastPrefs(
         deviceToken: String? = null,
@@ -75,7 +77,8 @@ class AttendancePreferencesRepository(private val context: Context) {
         androidCode: String? = null,
         userName: String? = null,
         baseUrl: String? = null,
-        phone: String? = null
+        phone: String? = null,
+        isAdmin: Boolean? = null
     ) {
         fastPrefs.edit().apply {
             deviceToken?.let { putString("device_token", it) }
@@ -85,6 +88,7 @@ class AttendancePreferencesRepository(private val context: Context) {
             userName?.let { putString("user_name", it) }
             baseUrl?.let { putString("tenant_base_url", it) }
             phone?.let { putString("last_phone", it) }
+            isAdmin?.let { putBoolean("is_admin", it) }
             apply()
         }
     }
@@ -146,6 +150,17 @@ class AttendancePreferencesRepository(private val context: Context) {
 
     val appLanguageFlow: Flow<String> = context.dataStore.data.map { prefs ->
         prefs[KEY_APP_LANGUAGE] ?: "en"
+    }
+
+    val isAdminFlow: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[KEY_DEVICE_IS_ADMIN] ?: fastPrefs.getBoolean("is_admin", false)
+    }
+
+    suspend fun setIsAdmin(isAdmin: Boolean) {
+        syncFastPrefs(isAdmin = isAdmin)
+        context.dataStore.edit { prefs ->
+            prefs[KEY_DEVICE_IS_ADMIN] = isAdmin
+        }
     }
 
     suspend fun setAppLanguage(lang: String) {
@@ -226,6 +241,7 @@ class AttendancePreferencesRepository(private val context: Context) {
             prefs[KEY_DEVICE_TOKEN] = ""
             prefs[KEY_DEVICE_USER_ID] = ""
             prefs[KEY_DEVICE_USER_NAME] = ""
+            prefs[KEY_DEVICE_IS_ADMIN] = false
             prefs[KEY_API_KEY] = ""
         }
     }
@@ -234,13 +250,15 @@ class AttendancePreferencesRepository(private val context: Context) {
         syncFastPrefs(
             setupComplete = false,
             deviceToken = "",
-            userName = ""
+            userName = "",
+            isAdmin = false
         )
         context.dataStore.edit { prefs ->
             prefs[KEY_SETUP_COMPLETE] = false
             prefs[KEY_DEVICE_TOKEN] = ""
             prefs[KEY_DEVICE_USER_ID] = ""
             prefs[KEY_DEVICE_USER_NAME] = ""
+            prefs[KEY_DEVICE_IS_ADMIN] = false
         }
     }
 
@@ -250,7 +268,8 @@ class AttendancePreferencesRepository(private val context: Context) {
         token: String,
         userId: Int,
         userName: String,
-        phone: String
+        phone: String,
+        isAdmin: Boolean = false
     ) {
         syncFastPrefs(
             baseUrl = baseUrl,
@@ -258,7 +277,8 @@ class AttendancePreferencesRepository(private val context: Context) {
             deviceToken = token,
             userName = userName,
             phone = phone,
-            setupComplete = true
+            setupComplete = true,
+            isAdmin = isAdmin
         )
         context.dataStore.edit { prefs ->
             prefs[KEY_TENANT_BASE_URL] = baseUrl
@@ -268,19 +288,22 @@ class AttendancePreferencesRepository(private val context: Context) {
             prefs[KEY_DEVICE_USER_NAME] = userName
             prefs[KEY_LAST_PHONE] = phone
             prefs[KEY_API_KEY] = ""
+            prefs[KEY_DEVICE_IS_ADMIN] = isAdmin
         }
     }
 
     suspend fun clearDeviceLogin() {
         syncFastPrefs(
             deviceToken = "",
-            userName = ""
+            userName = "",
+            isAdmin = false
         )
         context.dataStore.edit { prefs ->
             prefs[KEY_DEVICE_TOKEN] = ""
             prefs[KEY_DEVICE_USER_ID] = ""
             prefs[KEY_DEVICE_USER_NAME] = ""
             prefs[KEY_API_KEY] = ""
+            prefs[KEY_DEVICE_IS_ADMIN] = false
         }
     }
 

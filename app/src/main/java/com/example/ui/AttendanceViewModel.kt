@@ -90,7 +90,8 @@ data class AttendanceUiState(
     val waitingToSend: Boolean = false,
     val areaTracking: Boolean = false,
     val isBootstrapping: Boolean = true,
-    val appLanguage: String = "en"
+    val appLanguage: String = "en",
+    val isAdmin: Boolean = false
 )
 
 class AttendanceViewModel(application: Application) : AndroidViewModel(application) {
@@ -215,6 +216,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             val savedPhone = preferencesRepository.lastPhoneFlow.first()
             val autoSubmit = preferencesRepository.autoSubmitFlow.first()
             val appLanguage = preferencesRepository.appLanguageFlow.first()
+            val isAdmin = preferencesRepository.isAdminFlow.first()
             preferencesRepository.syncFastPrefs(
                 baseUrl = base,
                 companyCode = companyCode,
@@ -222,7 +224,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 setupComplete = setupComplete,
                 deviceToken = deviceToken,
                 userName = userName,
-                phone = savedPhone
+                phone = savedPhone,
+                isAdmin = isAdmin
             )
             networkClientManager.currentDeviceToken = deviceToken
             _uiState.update {
@@ -237,6 +240,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     savedPhone = savedPhone,
                     isAutoSubmitEnabled = autoSubmit,
                     appLanguage = appLanguage,
+                    isAdmin = isAdmin,
                     isBootstrapping = false
                 )
             }
@@ -470,7 +474,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 val token = body?.token?.trim().orEmpty()
                 if (response.isSuccessful && body?.status.equals("success", ignoreCase = true) && token.isNotEmpty()) {
                     val name = body?.userName?.trim().orEmpty()
-                    preferencesRepository.saveDeviceLogin(base, companyCode, token, body?.userId ?: 0, name, phoneValue)
+                    val isAdmin = body?.isAdmin == true
+                    preferencesRepository.saveDeviceLogin(base, companyCode, token, body?.userId ?: 0, name, phoneValue, isAdmin)
                     preferencesRepository.setAutoSubmit(false)
                     networkClientManager.currentDeviceToken = token
                     _uiState.update {
@@ -481,6 +486,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                             deviceToken = token,
                             loggedInUserName = name,
                             savedPhone = phoneValue,
+                            isAdmin = isAdmin,
                             isAutoSubmitEnabled = it.isAutoSubmitEnabled
                         )
                     }
@@ -538,6 +544,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 it.copy(
                     deviceToken = "",
                     loggedInUserName = "",
+                    isAdmin = false,
                     showSettingsDialog = false,
                     areaTracking = false
                 )
