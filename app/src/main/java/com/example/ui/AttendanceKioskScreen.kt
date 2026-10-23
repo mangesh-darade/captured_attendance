@@ -1266,36 +1266,6 @@ private fun HeaderBar(
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
-            val headerName = userName.ifBlank { tenantSiteName.orEmpty() }
-            if (headerName.isNotBlank()) {
-                Text(
-                    text = headerName,
-                    fontFamily = InterFontFamily,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.End,
-                    modifier = Modifier
-                        .padding(end = 8.dp)
-                        .widthIn(max = 170.dp)
-                )
-            }
-            if (onTodayAttendanceClick != null) {
-                IconButton(
-                    onClick = onTodayAttendanceClick,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.FormatListBulleted,
-                        contentDescription = "Today Attendance",
-                        tint = Color(0xFF006D77),
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(4.dp))
-            }
             if (onProfileClick != null) {
                 ProfileAvatar(
                     name = userName,
@@ -4010,9 +3980,13 @@ private fun KioskHomeScreen(
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
-                            if (uiState.savedPhone.isNotBlank()) {
+                            val displayPhone = uiState.savedPhone.trim()
+                            val isDuplicate = displayPhone.equals("admin", ignoreCase = true) ||
+                                displayPhone.equals(uiState.loggedInUserName.trim(), ignoreCase = true) ||
+                                displayPhone.equals("employee", ignoreCase = true)
+                            if (displayPhone.isNotBlank() && !isDuplicate) {
                                 Text(
-                                    text = uiState.savedPhone,
+                                    text = displayPhone,
                                     fontFamily = InterFontFamily,
                                     fontSize = 12.sp,
                                     color = TextMuted
@@ -4107,66 +4081,7 @@ private fun KioskHomeScreen(
             }
         }
 
-        // 3. Primary CTA: "Mark Attendance (Camera Scan)"
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = BrandPrimary,
-            shadowElevation = 3.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onNavigateToCapture() }
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PhotoCamera,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    Column {
-                        Text(
-                            text = "Mark Attendance",
-                            fontFamily = InterFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = Color.White
-                        )
-                        Text(
-                            text = "Tap to open camera & facial scan",
-                            fontFamily = InterFontFamily,
-                            fontSize = 12.sp,
-                            color = Color.White.copy(alpha = 0.85f)
-                        )
-                    }
-                }
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "Go",
-                    tint = Color.White,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-        }
-
-        // 4. Quick Services Grid (2 Columns)
+        // 3. Quick Services Grid (2 Columns)
         Text(
             text = "Quick Actions",
             fontFamily = InterFontFamily,
