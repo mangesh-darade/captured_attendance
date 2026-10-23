@@ -12,6 +12,7 @@ import android.os.Build
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -288,6 +289,10 @@ fun AttendanceKioskScreen(
     var confirmLogout by remember { mutableStateOf(false) }
     var showDiagnosticsDialog by remember { mutableStateOf(false) }
 
+    BackHandler(enabled = !uiState.showFaceEnrollment && currentTab != KioskBottomTab.HOME) {
+        currentTab = KioskBottomTab.HOME
+    }
+
     val currentLanguage = uiState.appLanguage
     val s = LangManager.getStrings(currentLanguage)
     val locale = remember(currentLanguage) {
@@ -446,7 +451,9 @@ fun AttendanceKioskScreen(
                         { currentTab = KioskBottomTab.SETTINGS }
                     } else {
                         null
-                    }
+                    },
+                    showBackButton = (currentTab == KioskBottomTab.CAPTURE),
+                    onBackClick = { currentTab = KioskBottomTab.HOME }
                 )
 
                 val enrollmentUser = uiState.selectedEnrollmentUser
@@ -856,12 +863,14 @@ fun AttendanceKioskScreen(
                         }
                     }
 
-                    // 3-Tab Bottom Navigation Bar (Home, Capture, Settings)
-                    KioskBottomNavigationBar(
-                        selectedTab = currentTab,
-                        onTabSelected = { currentTab = it },
-                        currentLanguage = currentLanguage
-                    )
+                    // 3-Tab Bottom Navigation Bar (Home, Capture, Settings) - hidden on Capture tab
+                    if (currentTab != KioskBottomTab.CAPTURE) {
+                        KioskBottomNavigationBar(
+                            selectedTab = currentTab,
+                            onTabSelected = { currentTab = it },
+                            currentLanguage = currentLanguage
+                        )
+                    }
                 }
             }
 
@@ -1156,7 +1165,9 @@ private fun HeaderBar(
     userName: String,
     onLogoLongClick: () -> Unit,
     onTodayAttendanceClick: (() -> Unit)? = null,
-    onProfileClick: (() -> Unit)? = null
+    onProfileClick: (() -> Unit)? = null,
+    showBackButton: Boolean = false,
+    onBackClick: (() -> Unit)? = null
 ) {
     Box(
         modifier = Modifier
@@ -1215,9 +1226,23 @@ private fun HeaderBar(
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (showBackButton && onBackClick != null) {
+                IconButton(
+                    onClick = onBackClick,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = Color(0xFF006D77),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+            }
             val logoModifier = Modifier
                 .height(40.dp)
-                .widthIn(max = 148.dp)
+                .widthIn(max = if (showBackButton) 120.dp else 148.dp)
             if (!tenantLogoUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = ImageRequest.Builder(LocalContext.current)
