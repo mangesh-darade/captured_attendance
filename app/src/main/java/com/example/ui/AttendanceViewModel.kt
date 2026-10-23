@@ -414,10 +414,14 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 )
                 val body = response.body()
                 if (response.isSuccessful && body?.status.equals("success", ignoreCase = true)) {
+                    val usersList = body?.users ?: emptyList()
+                    val isAdmin = _uiState.value.isAdmin
+                    val autoSelectUser = if (!isAdmin && usersList.isNotEmpty()) usersList.first() else null
                     _uiState.update {
                         it.copy(
                             isEnrollmentLoading = false,
-                            enrollmentUsers = body?.users ?: emptyList()
+                            enrollmentUsers = usersList,
+                            selectedEnrollmentUser = autoSelectUser
                         )
                     }
                 } else {

@@ -443,6 +443,7 @@ fun AttendanceKioskScreen(
                 if (uiState.showFaceEnrollment && enrollmentUser != null) {
                     FaceEnrollmentScannerView(
                         user = enrollmentUser,
+                        isAdmin = uiState.isAdmin,
                         scanCount = uiState.enrollmentScanCount,
                         facePhoto = uiState.enrollmentFacePhoto,
                         isRegistering = uiState.isRegisteringFace,
@@ -452,7 +453,13 @@ fun AttendanceKioskScreen(
                         faceBridge = faceBridge,
                         webViewManager = webViewManager,
                         viewModel = viewModel,
-                        onBack = { viewModel.selectEnrollmentUser(null) },
+                        onBack = {
+                            if (uiState.isAdmin) {
+                                viewModel.selectEnrollmentUser(null)
+                            } else {
+                                viewModel.closeFaceEnrollment()
+                            }
+                        },
                         onClose = { viewModel.closeFaceEnrollment() },
                         onRetake = { viewModel.retakeEnrollmentScan() },
                         onRegister = { viewModel.submitFaceRegistration() }
@@ -875,14 +882,46 @@ fun AttendanceKioskScreen(
         }
 
         if (uiState.showFaceEnrollment && uiState.selectedEnrollmentUser == null) {
-            EnrollmentUserListDialog(
-                users = uiState.enrollmentUsers,
-                isLoading = uiState.isEnrollmentLoading,
-                errorMsg = uiState.enrollmentErrorMsg,
-                onSelectUser = { viewModel.selectEnrollmentUser(it) },
-                onRefreshUsers = { viewModel.fetchEnrollmentUsers() },
-                onDismiss = { viewModel.closeFaceEnrollment() }
-            )
+            if (uiState.isAdmin) {
+                EnrollmentUserListDialog(
+                    users = uiState.enrollmentUsers,
+                    isLoading = uiState.isEnrollmentLoading,
+                    errorMsg = uiState.enrollmentErrorMsg,
+                    onSelectUser = { viewModel.selectEnrollmentUser(it) },
+                    onRefreshUsers = { viewModel.fetchEnrollmentUsers() },
+                    onDismiss = { viewModel.closeFaceEnrollment() }
+                )
+            } else {
+                if (uiState.isEnrollmentLoading) {
+                    androidx.compose.ui.window.Dialog(onDismissRequest = { viewModel.closeFaceEnrollment() }) {
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White,
+                            shadowElevation = 6.dp
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(20.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(14.dp)
+                            ) {
+                                CircularProgressIndicator(color = BrandPrimary, modifier = Modifier.size(24.dp))
+                                Text("Preparing camera...", fontFamily = InterFontFamily, fontSize = 14.sp, color = TextPrimary)
+                            }
+                        }
+                    }
+                } else if (uiState.enrollmentErrorMsg != null) {
+                    AlertDialog(
+                        onDismissRequest = { viewModel.closeFaceEnrollment() },
+                        title = { Text("Face Enrollment", fontFamily = InterFontFamily, fontWeight = FontWeight.Bold) },
+                        text = { Text(uiState.enrollmentErrorMsg ?: "Could not load user profile", fontFamily = InterFontFamily) },
+                        confirmButton = {
+                            Button(onClick = { viewModel.closeFaceEnrollment() }) {
+                                Text("OK", fontFamily = InterFontFamily)
+                            }
+                        }
+                    )
+                }
+            }
         }
 
         if (confirmLogout) {
@@ -1474,52 +1513,52 @@ private fun ProfileDialog(
                             )
                         }
                     }
+                }
 
-                    // Face Enrollment button for Admin
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFFF0FDF4),
-                        border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                // Face Enrollment button (Available for both Admin and Regular Employee)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF0FDF4),
+                    border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onFaceEnrollmentClick() }
+                ) {
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onFaceEnrollmentClick() }
+                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Row(
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFDCFCE7)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFFDCFCE7)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PhotoCamera,
-                                    contentDescription = null,
-                                    tint = Color(0xFF15803D),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Face Enrollment",
-                                    fontFamily = InterFontFamily,
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = TextPrimary
-                                )
-                                Text(
-                                    text = "Register employee face biometric",
-                                    fontFamily = InterFontFamily,
-                                    fontSize = 12.sp,
-                                    color = TextMuted
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Default.PhotoCamera,
+                                contentDescription = null,
+                                tint = Color(0xFF15803D),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "Face Enrollment",
+                                fontFamily = InterFontFamily,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
+                            )
+                            Text(
+                                text = if (isAdmin) "Manage employee face biometrics" else "Register your face biometric",
+                                fontFamily = InterFontFamily,
+                                fontSize = 12.sp,
+                                color = TextMuted
+                            )
                         }
                     }
                 }
@@ -2127,6 +2166,7 @@ private fun EnrollmentUserListDialog(
 @Composable
 private fun FaceEnrollmentScannerView(
     user: EnrollmentUserItem,
+    isAdmin: Boolean = false,
     scanCount: Int,
     facePhoto: Bitmap?,
     isRegistering: Boolean,
@@ -2351,11 +2391,13 @@ private fun FaceEnrollmentScannerView(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        OutlinedButton(
-                            onClick = onBack,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Enroll Another", fontFamily = InterFontFamily, fontSize = 12.sp)
+                        if (isAdmin) {
+                            OutlinedButton(
+                                onClick = onBack,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Enroll Another", fontFamily = InterFontFamily, fontSize = 12.sp)
+                            }
                         }
                         Button(
                             onClick = onClose,
