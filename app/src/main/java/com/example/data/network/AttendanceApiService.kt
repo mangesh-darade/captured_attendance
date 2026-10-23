@@ -38,6 +38,12 @@ interface AttendanceApiService {
     suspend fun getInitData(@Url url: String): Response<com.example.data.model.AttendanceInitResponse>
 
     @GET
+    suspend fun getTodayAttendance(
+        @Url url: String,
+        @Query("token") token: String
+    ): Response<com.example.data.model.TodayAttendanceResponse>
+
+    @GET
     suspend fun getCapturedPage(@Url url: String): Response<ResponseBody>
 
     @FormUrlEncoded

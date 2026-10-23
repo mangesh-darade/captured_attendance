@@ -68,6 +68,12 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.FormatListBulleted
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import com.example.data.model.AttendanceRecordItem
+import com.example.data.model.TodayAttendanceSummary
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -419,6 +425,9 @@ fun AttendanceKioskScreen(
                     tenantSiteName = uiState.tenantSiteName,
                     userName = uiState.loggedInUserName,
                     onLogoLongClick = { viewModel.onSettingsClicked() },
+                    onTodayAttendanceClick = if (uiState.deviceToken.isNotBlank()) {
+                        { viewModel.openTodayAttendance() }
+                    } else null,
                     onProfileClick = if (uiState.deviceToken.isNotBlank()) {
                         { showProfile = true }
                     } else {
@@ -826,6 +835,17 @@ fun AttendanceKioskScreen(
             )
         }
 
+        if (uiState.showTodayAttendance) {
+            TodayAttendanceDialog(
+                summary = uiState.todaySummary,
+                records = uiState.todayRecords,
+                isLoading = uiState.isTodayAttendanceLoading,
+                errorMessage = uiState.todayAttendanceError,
+                onRefresh = { viewModel.fetchTodayAttendance() },
+                onDismiss = { viewModel.closeTodayAttendance() }
+            )
+        }
+
         if (confirmLogout) {
             AlertDialog(
                 onDismissRequest = { confirmLogout = false },
@@ -1008,6 +1028,7 @@ private fun HeaderBar(
     tenantSiteName: String?,
     userName: String,
     onLogoLongClick: () -> Unit,
+    onTodayAttendanceClick: (() -> Unit)? = null,
     onProfileClick: (() -> Unit)? = null
 ) {
     Box(
@@ -1108,6 +1129,20 @@ private fun HeaderBar(
                         .padding(end = 8.dp)
                         .widthIn(max = 170.dp)
                 )
+            }
+            if (onTodayAttendanceClick != null) {
+                IconButton(
+                    onClick = onTodayAttendanceClick,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FormatListBulleted,
+                        contentDescription = "Today Attendance",
+                        tint = Color(0xFF006D77),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(4.dp))
             }
             if (onProfileClick != null) {
                 ProfileAvatar(
@@ -1416,6 +1451,391 @@ private fun ProfileDialog(
             }
         }
     )
+}
+
+@Composable
+private fun TodayAttendanceDialog(
+    summary: TodayAttendanceSummary?,
+    records: List<AttendanceRecordItem>,
+    isLoading: Boolean,
+    errorMessage: String?,
+    onRefresh: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredRecords = remember(records, searchQuery) {
+        if (searchQuery.isBlank()) records
+        else records.filter {
+            it.userName.contains(searchQuery.trim(), ignoreCase = true)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close", fontFamily = InterFontFamily, color = TextMuted)
+            }
+        },
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE0F2FE)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FormatListBulleted,
+                            contentDescription = null,
+                            tint = Color(0xFF0284C7),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Today's Attendance",
+                            fontFamily = InterFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp,
+                            color = TextPrimary
+                        )
+                        Text(
+                            text = "Punches & summary",
+                            fontFamily = InterFontFamily,
+                            fontSize = 11.sp,
+                            color = TextMuted
+                        )
+                    }
+                }
+                IconButton(
+                    onClick = onRefresh,
+                    enabled = !isLoading,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Refresh,
+                        contentDescription = "Refresh",
+                        tint = if (isLoading) TextMuted else BrandPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 200.dp, max = 500.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // 1) Summary chips card
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Present
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "${summary?.totalPresent ?: records.size}",
+                                fontFamily = InterFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Color(0xFF0F172A)
+                            )
+                            Text(
+                                text = "Present",
+                                fontFamily = InterFontFamily,
+                                fontSize = 11.sp,
+                                color = TextMuted
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(24.dp)
+                                .background(Color(0xFFCBD5E1))
+                        )
+                        // In
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "${summary?.totalIn ?: 0}",
+                                fontFamily = InterFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Color(0xFF15803D)
+                            )
+                            Text(
+                                text = "In",
+                                fontFamily = InterFontFamily,
+                                fontSize = 11.sp,
+                                color = TextMuted
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(24.dp)
+                                .background(Color(0xFFCBD5E1))
+                        )
+                        // Out
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "${summary?.totalOut ?: 0}",
+                                fontFamily = InterFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Color(0xFFB45309)
+                            )
+                            Text(
+                                text = "Out",
+                                fontFamily = InterFontFamily,
+                                fontSize = 11.sp,
+                                color = TextMuted
+                            )
+                        }
+                    }
+                }
+
+                // 2) Search Bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = {
+                        Text(
+                            text = "Search employee...",
+                            fontFamily = InterFontFamily,
+                            fontSize = 13.sp,
+                            color = TextMuted
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = TextMuted,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(24.dp)) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Clear",
+                                    tint = TextMuted,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = BrandPrimary,
+                        unfocusedBorderColor = Color(0xFFCBD5E1)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // 3) Content Body: Loading / Error / Empty / List
+                when {
+                    isLoading -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = BrandPrimary,
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                    }
+                    errorMessage != null -> {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = ToastErrorBg,
+                            border = BorderStroke(1.dp, ToastErrorBorder),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(12.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    text = errorMessage,
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 12.sp,
+                                    color = ToastErrorText,
+                                    textAlign = TextAlign.Center
+                                )
+                                OutlinedButton(
+                                    onClick = onRefresh,
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ToastErrorText)
+                                ) {
+                                    Text("Retry", fontFamily = InterFontFamily, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+                    filteredRecords.isEmpty() -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(140.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (searchQuery.isNotBlank()) "No employees matching \"$searchQuery\"" else "No attendance punches found for today yet.",
+                                fontFamily = InterFontFamily,
+                                fontSize = 13.sp,
+                                color = TextMuted,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                    else -> {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(filteredRecords) { record ->
+                                AttendanceRecordRow(record)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun AttendanceRecordRow(record: AttendanceRecordItem) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = Color(0xFFFAFAFA),
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Employee Initials Avatar
+            val name = record.userName.ifBlank { "User ${record.userId}" }
+            val initial = name.firstOrNull()?.uppercaseChar()?.toString() ?: "E"
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE0F2FE)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = initial,
+                    fontFamily = InterFontFamily,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    color = Color(0xFF0369A1)
+                )
+            }
+
+            // Name and Punch Times
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = name,
+                    fontFamily = InterFontFamily,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp,
+                    color = TextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (record.inTime.isNotBlank() && record.inTime != "--:--") {
+                        Text(
+                            text = "In: ${record.inTime}",
+                            fontFamily = InterFontFamily,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF15803D)
+                        )
+                    }
+                    if (!record.outTime.isNullOrBlank()) {
+                        Text(
+                            text = "Out: ${record.outTime}",
+                            fontFamily = InterFontFamily,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFFB45309)
+                        )
+                    }
+                    if (!record.location.isNullOrBlank()) {
+                        Text(
+                            text = "(${record.location})",
+                            fontFamily = InterFontFamily,
+                            fontSize = 11.sp,
+                            color = TextMuted
+                        )
+                    }
+                }
+            }
+
+            // Status Pill
+            val isPunchedIn = record.isIn
+            val statusBg = if (isPunchedIn) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
+            val statusColor = if (isPunchedIn) Color(0xFF166534) else Color(0xFF92400E)
+            val statusText = if (isPunchedIn) "IN" else "OUT"
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(statusBg)
+                    .padding(horizontal = 8.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = statusText,
+                    fontFamily = InterFontFamily,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = statusColor
+                )
+            }
+        }
+    }
 }
 
 @Composable

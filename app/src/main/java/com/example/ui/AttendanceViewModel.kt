@@ -16,6 +16,8 @@ import com.example.data.model.sortedByDistance
 import com.example.data.model.StoreAttendanceResponse
 import com.example.data.model.ToastMessage
 import com.example.data.model.ToastType
+import com.example.data.model.TodayAttendanceSummary
+import com.example.data.model.AttendanceRecordItem
 import com.example.data.network.NetworkClientManager
 import com.example.data.util.AppLogger
 import com.example.face.FaceDetectionResult
@@ -91,7 +93,12 @@ data class AttendanceUiState(
     val areaTracking: Boolean = false,
     val isBootstrapping: Boolean = true,
     val appLanguage: String = "en",
-    val isAdmin: Boolean = false
+    val isAdmin: Boolean = false,
+    val showTodayAttendance: Boolean = false,
+    val isTodayAttendanceLoading: Boolean = false,
+    val todaySummary: TodayAttendanceSummary = TodayAttendanceSummary(),
+    val todayRecords: List<AttendanceRecordItem> = emptyList(),
+    val todayAttendanceError: String? = null
 )
 
 class AttendanceViewModel(application: Application) : AndroidViewModel(application) {
@@ -300,6 +307,54 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.update { it.copy(isAutoSubmitEnabled = enabled) }
         viewModelScope.launch {
             preferencesRepository.setAutoSubmit(enabled)
+        }
+    }
+
+    fun openTodayAttendance() {
+        _uiState.update { it.copy(showTodayAttendance = true) }
+        fetchTodayAttendance()
+    }
+
+    fun closeTodayAttendance() {
+        _uiState.update { it.copy(showTodayAttendance = false) }
+    }
+
+    fun fetchTodayAttendance() {
+        viewModelScope.launch {
+            val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
+            val token = _uiState.value.deviceToken
+            if (base.isBlank() || token.isBlank()) return@launch
+
+            _uiState.update { it.copy(isTodayAttendanceLoading = true, todayAttendanceError = null) }
+            try {
+                val response = networkClientManager.attendanceService.getTodayAttendance(
+                    url = "${base}attendance_api/today_summary",
+                    token = token
+                )
+                val body = response.body()
+                if (response.isSuccessful && body?.status.equals("success", ignoreCase = true)) {
+                    _uiState.update {
+                        it.copy(
+                            isTodayAttendanceLoading = false,
+                            todaySummary = body?.summary ?: TodayAttendanceSummary(),
+                            todayRecords = body?.records ?: emptyList(),
+                            todayAttendanceError = null
+                        )
+                    }
+                } else {
+                    val msg = body?.message ?: "Failed to load today's attendance"
+                    _uiState.update {
+                        it.copy(isTodayAttendanceLoading = false, todayAttendanceError = msg)
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isTodayAttendanceLoading = false,
+                        todayAttendanceError = e.localizedMessage ?: "Failed to connect to server"
+                    )
+                }
+            }
         }
     }
 

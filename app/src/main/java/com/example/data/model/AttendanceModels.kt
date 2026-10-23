@@ -183,3 +183,32 @@ enum class AttendanceButtonState(val label: String) {
     SUBMITTING("Submitting..."),
     RETAKE("Retake")
 }
+
+@JsonClass(generateAdapter = true)
+data class TodayAttendanceSummary(
+    @Json(name = "total_present") val totalPresent: Int = 0,
+    @Json(name = "total_in") val totalIn: Int = 0,
+    @Json(name = "total_out") val totalOut: Int = 0
+)
+
+@JsonClass(generateAdapter = true)
+data class AttendanceRecordItem(
+    val id: Int = 0,
+    @Json(name = "user_id") val userId: Int = 0,
+    @Json(name = "user_name") val userName: String = "",
+    val phone: String? = null,
+    @Json(name = "in_time") val inTime: String = "--:--",
+    @Json(name = "out_time") val outTime: String? = null,
+    @Json(name = "is_in") val isIn: Boolean = true,
+    val location: String = "Main Site",
+    @Json(name = "created_at") val createdAt: String? = null
+)
+
+@JsonClass(generateAdapter = true)
+data class TodayAttendanceResponse(
+    val status: String? = null,
+    val message: String? = null,
+    val date: String? = null,
+    val summary: TodayAttendanceSummary? = null,
+    val records: List<AttendanceRecordItem>? = null
+)
