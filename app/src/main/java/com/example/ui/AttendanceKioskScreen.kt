@@ -5054,8 +5054,8 @@ private fun KioskSettingsScreen(
 ) {
     val s = LangManager.getStrings(currentLanguage)
     val scrollState = rememberScrollState()
-    var isLanguageExpanded by remember { mutableStateOf(true) }
-    var isDiagnosticsExpanded by remember { mutableStateOf(true) }
+    var isLanguageExpanded by remember { mutableStateOf(false) }
+    var isDiagnosticsExpanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
