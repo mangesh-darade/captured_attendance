@@ -297,8 +297,12 @@ fun AttendanceKioskScreen(
     var confirmLogout by remember { mutableStateOf(false) }
     var showDiagnosticsDialog by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = !uiState.showFaceEnrollment && currentTab != KioskBottomTab.HOME) {
-        currentTab = KioskBottomTab.HOME
+    BackHandler(enabled = !uiState.showFaceEnrollment && (uiState.showTodayAttendance || currentTab != KioskBottomTab.HOME)) {
+        if (uiState.showTodayAttendance) {
+            viewModel.closeTodayAttendance()
+        } else {
+            currentTab = KioskBottomTab.HOME
+        }
     }
 
     val currentLanguage = uiState.appLanguage
@@ -454,8 +458,14 @@ fun AttendanceKioskScreen(
                     onLogoLongClick = { viewModel.onSettingsClicked() },
                     onTodayAttendanceClick = null,
                     onProfileClick = null,
-                    showBackButton = (currentTab == KioskBottomTab.CAPTURE),
-                    onBackClick = { currentTab = KioskBottomTab.HOME }
+                    showBackButton = (currentTab == KioskBottomTab.CAPTURE || uiState.showTodayAttendance),
+                    onBackClick = {
+                        if (uiState.showTodayAttendance) {
+                            viewModel.closeTodayAttendance()
+                        } else {
+                            currentTab = KioskBottomTab.HOME
+                        }
+                    }
                 )
 
                 val enrollmentUser = uiState.selectedEnrollmentUser
@@ -482,6 +492,16 @@ fun AttendanceKioskScreen(
                         onClose = { viewModel.closeFaceEnrollment() },
                         onRetake = { viewModel.retakeEnrollmentScan() },
                         onRegister = { viewModel.submitFaceRegistration() }
+                    )
+                } else if (uiState.showTodayAttendance) {
+                    AttendanceHistoryScreen(
+                        summary = uiState.todaySummary,
+                        records = uiState.todayRecords,
+                        isLoading = uiState.isTodayAttendanceLoading,
+                        errorMessage = uiState.todayAttendanceError,
+                        currentLanguage = currentLanguage,
+                        onRefresh = { viewModel.fetchTodayAttendance() },
+                        onBack = { viewModel.closeTodayAttendance() }
                     )
                 } else {
                     Box(
@@ -921,8 +941,8 @@ fun AttendanceKioskScreen(
                         }
                     }
 
-                    // 3-Tab Bottom Navigation Bar (Home, Capture, Settings) - hidden on Capture tab
-                    if (currentTab != KioskBottomTab.CAPTURE) {
+                    // 3-Tab Bottom Navigation Bar (Home, Capture, Settings) - hidden on Capture tab & Attendance History
+                    if (currentTab != KioskBottomTab.CAPTURE && !uiState.showTodayAttendance) {
                         KioskBottomNavigationBar(
                             selectedTab = currentTab,
                             onTabSelected = { currentTab = it },
@@ -986,17 +1006,7 @@ fun AttendanceKioskScreen(
             )
         }
 
-        if (uiState.showTodayAttendance) {
-            TodayAttendanceDialog(
-                summary = uiState.todaySummary,
-                records = uiState.todayRecords,
-                isLoading = uiState.isTodayAttendanceLoading,
-                errorMessage = uiState.todayAttendanceError,
-                currentLanguage = uiState.appLanguage,
-                onRefresh = { viewModel.fetchTodayAttendance() },
-                onDismiss = { viewModel.closeTodayAttendance() }
-            )
-        }
+
 
         if (uiState.showFaceEnrollment && uiState.selectedEnrollmentUser == null) {
             if (uiState.isAdmin) {
@@ -1686,14 +1696,14 @@ private fun ProfileDialog(
 }
 
 @Composable
-private fun TodayAttendanceDialog(
+private fun AttendanceHistoryScreen(
     summary: TodayAttendanceSummary?,
     records: List<AttendanceRecordItem>,
     isLoading: Boolean,
     errorMessage: String?,
     currentLanguage: String = "en",
     onRefresh: () -> Unit,
-    onDismiss: () -> Unit
+    onBack: () -> Unit
 ) {
     val s = LangManager.getStrings(currentLanguage)
     var searchQuery by remember { mutableStateOf("") }
@@ -1718,34 +1728,41 @@ private fun TodayAttendanceDialog(
         }
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text(s.closeButton, fontFamily = InterFontFamily, color = TextMuted)
-            }
-        },
-        title = {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFFF8FAFC))
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        // 1. Header Bar with Back button, Title & Refresh
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            shadowElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFE0F7FA)),
-                        contentAlignment = Alignment.Center
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.DateRange,
-                            contentDescription = null,
-                            tint = Color(0xFF006D77),
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(0xFF0F172A),
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -1754,476 +1771,425 @@ private fun TodayAttendanceDialog(
                             text = s.todayAttendanceTitle,
                             fontFamily = InterFontFamily,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp,
-                            color = TextPrimary
+                            fontSize = 15.sp,
+                            color = Color(0xFF0F172A)
                         )
                         Text(
                             text = s.todayAttendanceSubtitle,
                             fontFamily = InterFontFamily,
                             fontSize = 11.sp,
-                            color = TextMuted
+                            color = Color(0xFF64748B)
                         )
                     }
                 }
                 IconButton(
                     onClick = onRefresh,
                     enabled = !isLoading,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Refresh",
-                        tint = if (isLoading) TextMuted else Color(0xFF006D77),
+                        tint = if (isLoading) Color(0xFF94A3B8) else Color(0xFF006D77),
                         modifier = Modifier.size(20.dp)
                     )
                 }
             }
-        },
-        text = {
-            Column(
+        }
+
+        // 2. Metrics Summary Card (Total, Present, In, Out)
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            shadowElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 220.dp, max = 520.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // 1) Summary chips card (Total, Present, In, Out)
+                // Total
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "${records.size}",
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 15.sp,
+                        color = Color(0xFF0F172A)
+                    )
+                    Text(
+                        text = s.totalEntries,
+                        fontFamily = InterFontFamily,
+                        fontSize = 10.sp,
+                        color = Color(0xFF64748B)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(22.dp)
+                        .background(Color(0xFFE2E8F0))
+                )
+                // Present
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "${summary?.totalPresent ?: 0}",
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 15.sp,
+                        color = Color(0xFF0284C7)
+                    )
+                    Text(
+                        text = s.totalPresent,
+                        fontFamily = InterFontFamily,
+                        fontSize = 10.sp,
+                        color = Color(0xFF64748B)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(22.dp)
+                        .background(Color(0xFFE2E8F0))
+                )
+                // In
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "${summary?.totalIn ?: 0}",
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 15.sp,
+                        color = Color(0xFF15803D)
+                    )
+                    Text(
+                        text = s.inButton,
+                        fontFamily = InterFontFamily,
+                        fontSize = 10.sp,
+                        color = Color(0xFF64748B)
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(22.dp)
+                        .background(Color(0xFFE2E8F0))
+                )
+                // Out
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "${summary?.totalOut ?: 0}",
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 15.sp,
+                        color = Color(0xFFB45309)
+                    )
+                    Text(
+                        text = s.outButton,
+                        fontFamily = InterFontFamily,
+                        fontSize = 10.sp,
+                        color = Color(0xFF64748B)
+                    )
+                }
+            }
+        }
+
+        // 3. Filter Chips
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            val filterOptions = listOf(
+                "ALL" to s.filterAll,
+                "TODAY" to s.filterToday,
+                "IN" to s.filterIn,
+                "OUT" to s.filterOut
+            )
+            filterOptions.forEach { (key, label) ->
+                val isSelected = selectedFilter == key
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFF8FAFC),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isSelected) Color(0xFF006D77) else Color.White,
+                    border = BorderStroke(1.dp, if (isSelected) Color(0xFF006D77) else Color(0xFFCBD5E1)),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { selectedFilter = key }
+                ) {
+                    Text(
+                        text = label,
+                        fontFamily = InterFontFamily,
+                        fontSize = 11.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSelected) Color.White else Color(0xFF334155),
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(vertical = 6.dp, horizontal = 2.dp)
+                    )
+                }
+            }
+        }
+
+        // 4. Compact Search Bar
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = {
+                Text(
+                    text = s.searchEmployeePlaceholder,
+                    fontFamily = InterFontFamily,
+                    fontSize = 12.sp,
+                    color = Color(0xFF94A3B8)
+                )
+            },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = null,
+                    tint = Color(0xFF64748B),
+                    modifier = Modifier.size(18.dp)
+                )
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(24.dp)) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Clear",
+                            tint = Color(0xFF64748B),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(10.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White,
+                focusedBorderColor = BrandPrimary,
+                unfocusedBorderColor = Color(0xFFCBD5E1)
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // 5. Records List with Fixed Row Height
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = BrandPrimary,
+                        modifier = Modifier.size(32.dp)
+                    )
+                }
+            }
+            errorMessage != null -> {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = ToastErrorBg,
+                    border = BorderStroke(1.dp, ToastErrorBorder),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceAround,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(14.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Total Records
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "${records.size}",
-                                fontFamily = InterFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = Color(0xFF0F172A)
-                            )
-                            Text(
-                                text = s.totalEntries,
-                                fontFamily = InterFontFamily,
-                                fontSize = 10.sp,
-                                color = TextMuted
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .width(1.dp)
-                                .height(22.dp)
-                                .background(Color(0xFFCBD5E1))
-                        )
-                        // Today Present
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "${summary?.totalPresent ?: 0}",
-                                fontFamily = InterFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = Color(0xFF0369A1)
-                            )
-                            Text(
-                                text = s.totalPresent,
-                                fontFamily = InterFontFamily,
-                                fontSize = 10.sp,
-                                color = TextMuted
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .width(1.dp)
-                                .height(22.dp)
-                                .background(Color(0xFFCBD5E1))
-                        )
-                        // In
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "${summary?.totalIn ?: 0}",
-                                fontFamily = InterFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = Color(0xFF15803D)
-                            )
-                            Text(
-                                text = s.inButton,
-                                fontFamily = InterFontFamily,
-                                fontSize = 10.sp,
-                                color = TextMuted
-                            )
-                        }
-                        Box(
-                            modifier = Modifier
-                                .width(1.dp)
-                                .height(22.dp)
-                                .background(Color(0xFFCBD5E1))
-                        )
-                        // Out
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "${summary?.totalOut ?: 0}",
-                                fontFamily = InterFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp,
-                                color = Color(0xFFB45309)
-                            )
-                            Text(
-                                text = s.outButton,
-                                fontFamily = InterFontFamily,
-                                fontSize = 10.sp,
-                                color = TextMuted
-                            )
-                        }
-                    }
-                }
-
-                // 2) Filter Chips Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    val filterOptions = listOf(
-                        "ALL" to s.filterAll,
-                        "TODAY" to s.filterToday,
-                        "IN" to s.filterIn,
-                        "OUT" to s.filterOut
-                    )
-                    filterOptions.forEach { (key, label) ->
-                        val isSelected = selectedFilter == key
-                        Surface(
-                            shape = RoundedCornerShape(14.dp),
-                            color = if (isSelected) Color(0xFF006D77) else Color(0xFFF1F5F9),
-                            border = BorderStroke(1.dp, if (isSelected) Color(0xFF006D77) else Color(0xFFE2E8F0)),
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { selectedFilter = key }
-                        ) {
-                            Text(
-                                text = label,
-                                fontFamily = InterFontFamily,
-                                fontSize = 10.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (isSelected) Color.White else Color(0xFF475569),
-                                textAlign = TextAlign.Center,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 2.dp)
-                            )
-                        }
-                    }
-                }
-
-                // 3) Search Bar
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = {
                         Text(
-                            text = s.searchEmployeePlaceholder,
+                            text = errorMessage,
                             fontFamily = InterFontFamily,
-                            fontSize = 12.sp,
-                            color = TextMuted
+                            fontSize = 13.sp,
+                            color = ToastErrorText,
+                            textAlign = TextAlign.Center
                         )
-                    },
-                    leadingIcon = {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = null,
-                            tint = TextMuted,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }, modifier = Modifier.size(24.dp)) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Clear",
-                                    tint = TextMuted,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                    },
-                    singleLine = true,
-                    shape = RoundedCornerShape(10.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = BrandPrimary,
-                        unfocusedBorderColor = Color(0xFFCBD5E1)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // 4) Content Body: Loading / Error / Empty / List
-                when {
-                    isLoading -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(160.dp),
-                            contentAlignment = Alignment.Center
+                        OutlinedButton(
+                            onClick = onRefresh,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ToastErrorText)
                         ) {
-                            CircularProgressIndicator(
-                                color = BrandPrimary,
-                                modifier = Modifier.size(32.dp)
-                            )
+                            Text("Retry", fontFamily = InterFontFamily, fontSize = 12.sp)
                         }
                     }
-                    errorMessage != null -> {
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = ToastErrorBg,
-                            border = BorderStroke(1.dp, ToastErrorBorder),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = errorMessage,
-                                    fontFamily = InterFontFamily,
-                                    fontSize = 12.sp,
-                                    color = ToastErrorText,
-                                    textAlign = TextAlign.Center
-                                )
-                                OutlinedButton(
-                                    onClick = onRefresh,
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ToastErrorText)
-                                ) {
-                                    Text("Retry", fontFamily = InterFontFamily, fontSize = 12.sp)
-                                }
-                            }
-                        }
-                    }
-                    filteredRecords.isEmpty() -> {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(140.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = if (searchQuery.isNotBlank()) "No records matching \"$searchQuery\"" else s.noRecordsToday,
-                                fontFamily = InterFontFamily,
-                                fontSize = 13.sp,
-                                color = TextMuted,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                    else -> {
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(filteredRecords) { record ->
-                                AttendanceRecordRow(record)
-                            }
-                        }
+                }
+            }
+            filteredRecords.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (searchQuery.isNotBlank()) "No records matching \"$searchQuery\"" else s.noRecordsToday,
+                        fontFamily = InterFontFamily,
+                        fontSize = 13.sp,
+                        color = Color(0xFF64748B),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    items(filteredRecords) { record ->
+                        AttendanceCompactRecordRow(record)
                     }
                 }
             }
         }
-    )
+    }
 }
 
 @Composable
-private fun AttendanceRecordRow(record: AttendanceRecordItem) {
+private fun AttendanceCompactRecordRow(record: AttendanceRecordItem) {
+    val name = record.userName.ifBlank { "User ${record.userId}" }
+    val initial = name.firstOrNull()?.uppercaseChar()?.toString() ?: "E"
+    val dateStr = record.date ?: record.createdAt?.take(10) ?: ""
+    val isPunchedIn = record.isIn
+    val statusBg = if (isPunchedIn) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
+    val statusColor = if (isPunchedIn) Color(0xFF166534) else Color(0xFF92400E)
+    val statusText = if (isPunchedIn) "IN" else "OUT"
+
     Surface(
         shape = RoundedCornerShape(10.dp),
-        color = Color(0xFFFAFAFA),
+        color = Color.White,
         border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp)
     ) {
-        Column(
+        Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(10.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+                .fillMaxSize()
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            // Header Row: Avatar, Name & Phone, Date badge, Status pill
+            // Col 1: Avatar + Name & Phone
             Row(
-                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.weight(0.42f)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.weight(1f, fill = false)
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE0F2FE)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    val name = record.userName.ifBlank { "User ${record.userId}" }
-                    val initial = name.firstOrNull()?.uppercaseChar()?.toString() ?: "E"
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFE0F2FE)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = initial,
-                            fontFamily = InterFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = Color(0xFF0369A1)
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = name,
-                            fontFamily = InterFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (!record.phone.isNullOrBlank()) {
-                            Text(
-                                text = record.phone,
-                                fontFamily = InterFontFamily,
-                                fontSize = 11.sp,
-                                color = TextMuted
-                            )
-                        }
-                    }
+                    Text(
+                        text = initial,
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        color = Color(0xFF0369A1)
+                    )
                 }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    val dateStr = record.date ?: record.createdAt?.take(10) ?: ""
-                    if (dateStr.isNotBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = Color(0xFFF1F5F9),
-                            border = BorderStroke(1.dp, Color(0xFFE2E8F0))
-                        ) {
-                            Text(
-                                text = dateStr,
-                                fontFamily = InterFontFamily,
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = Color(0xFF475569),
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-
-                    val isPunchedIn = record.isIn
-                    val statusBg = if (isPunchedIn) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
-                    val statusColor = if (isPunchedIn) Color(0xFF166534) else Color(0xFF92400E)
-                    val statusText = if (isPunchedIn) "IN" else "OUT"
-
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(statusBg)
-                            .padding(horizontal = 7.dp, vertical = 3.dp)
-                    ) {
-                        Text(
-                            text = statusText,
-                            fontFamily = InterFontFamily,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = statusColor
-                        )
-                    }
+                Column(verticalArrangement = Arrangement.Center) {
+                    Text(
+                        text = name,
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        color = Color(0xFF0F172A),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = if (!record.phone.isNullOrBlank()) record.phone else "--",
+                        fontFamily = InterFontFamily,
+                        fontSize = 10.sp,
+                        color = Color(0xFF64748B),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
 
-            // In / Out Details Row
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
-                modifier = Modifier.fillMaxWidth()
+            // Col 2: Date + In/Out Times
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.weight(0.38f)
             ) {
+                if (dateStr.isNotBlank()) {
+                    Text(
+                        text = dateStr,
+                        fontFamily = InterFontFamily,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF475569)
+                    )
+                }
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 5.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "➔ IN:",
-                            fontFamily = InterFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            color = Color(0xFF15803D)
-                        )
-                        Text(
-                            text = if (record.inTime.isNotBlank() && record.inTime != "--:--") record.inTime else "--:--",
-                            fontFamily = InterFontFamily,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 11.sp,
-                            color = Color(0xFF0F172A)
-                        )
-                    }
+                    Text(
+                        text = if (record.inTime.isNotBlank() && record.inTime != "--:--") record.inTime else "--:--",
+                        fontFamily = InterFontFamily,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF15803D)
+                    )
+                    Text(
+                        text = "•",
+                        fontSize = 8.sp,
+                        color = Color(0xFFCBD5E1)
+                    )
+                    Text(
+                        text = if (!record.outTime.isNullOrBlank()) record.outTime else "--:--",
+                        fontFamily = InterFontFamily,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (!record.outTime.isNullOrBlank()) Color(0xFFB45309) else Color(0xFF94A3B8)
+                    )
+                }
+            }
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "➔ OUT:",
-                            fontFamily = InterFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            color = Color(0xFFB45309)
-                        )
-                        Text(
-                            text = if (!record.outTime.isNullOrBlank()) record.outTime else "--:--",
-                            fontFamily = InterFontFamily,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 11.sp,
-                            color = if (!record.outTime.isNullOrBlank()) Color(0xFF0F172A) else Color(0xFF94A3B8)
-                        )
-                    }
-
-                    if (!record.location.isNullOrBlank()) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(2.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Place,
-                                contentDescription = null,
-                                tint = Color(0xFF006D77),
-                                modifier = Modifier.size(11.dp)
-                            )
-                            Text(
-                                text = record.location.take(14),
-                                fontFamily = InterFontFamily,
-                                fontSize = 10.sp,
-                                color = Color(0xFF006D77),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
+            // Col 3: Status Badge + Location
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.weight(0.20f)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(statusBg)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = statusText,
+                        fontFamily = InterFontFamily,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = statusColor
+                    )
+                }
+                if (!record.location.isNullOrBlank()) {
+                    Text(
+                        text = record.location,
+                        fontFamily = InterFontFamily,
+                        fontSize = 9.sp,
+                        color = Color(0xFF006D77),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
         }
