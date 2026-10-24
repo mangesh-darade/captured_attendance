@@ -130,6 +130,12 @@ interface AppStrings {
     val punchLocation: String
     val recordIdLabel: String
     val punchDate: String
+    val checkInLabel: String
+    val checkOutLabel: String
+    val statusIn: String
+    val statusOut: String
+    val timestampLabel: String
+    val retryButton: String
 
     // Face Enrollment
     val faceEnrollmentTitle: String

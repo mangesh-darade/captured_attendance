@@ -2017,7 +2017,7 @@ private fun AttendanceHistoryScreen(
                             onClick = onRefresh,
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = ToastErrorText)
                         ) {
-                            Text("Retry", fontFamily = InterFontFamily, fontSize = 12.sp)
+                            Text(s.retryButton, fontFamily = InterFontFamily, fontSize = 12.sp)
                         }
                     }
                 }
@@ -2048,6 +2048,7 @@ private fun AttendanceHistoryScreen(
                     items(filteredRecords) { record ->
                         AttendanceCompactRecordRow(
                             record = record,
+                            s = s,
                             onClick = { selectedRecord = record }
                         )
                     }
@@ -2068,6 +2069,7 @@ private fun AttendanceHistoryScreen(
 @Composable
 private fun AttendanceCompactRecordRow(
     record: AttendanceRecordItem,
+    s: AppStrings,
     onClick: () -> Unit
 ) {
     val name = record.userName.ifBlank { "User ${record.userId}" }
@@ -2076,7 +2078,7 @@ private fun AttendanceCompactRecordRow(
     val isPunchedIn = record.isIn
     val statusBg = if (isPunchedIn) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
     val statusColor = if (isPunchedIn) Color(0xFF166534) else Color(0xFF92400E)
-    val statusText = if (isPunchedIn) "IN" else "OUT"
+    val statusText = if (isPunchedIn) s.statusIn else s.statusOut
 
     Surface(
         shape = RoundedCornerShape(10.dp),
@@ -2224,7 +2226,7 @@ private fun AttendanceRecordDetailDialog(
     val isPunchedIn = record.isIn
     val statusBg = if (isPunchedIn) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
     val statusColor = if (isPunchedIn) Color(0xFF166534) else Color(0xFF92400E)
-    val statusText = if (isPunchedIn) "CHECKED IN" else "CHECKED OUT"
+    val statusText = if (isPunchedIn) s.checkedInStatus else s.checkedOutStatus
 
     androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -2379,7 +2381,7 @@ private fun AttendanceRecordDetailDialog(
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Text(
-                                    text = "Check-In",
+                                    text = s.checkInLabel,
                                     fontFamily = InterFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
@@ -2420,7 +2422,7 @@ private fun AttendanceRecordDetailDialog(
                                     modifier = Modifier.size(14.dp)
                                 )
                                 Text(
-                                    text = "Check-Out",
+                                    text = s.checkOutLabel,
                                     fontFamily = InterFontFamily,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
@@ -2428,10 +2430,10 @@ private fun AttendanceRecordDetailDialog(
                                 )
                             }
                             Text(
-                                text = if (!record.outTime.isNullOrBlank()) record.outTime else "--:--",
+                                text = if (!record.outTime.isNullOrBlank()) record.outTime else s.notCheckedOutYet,
                                 fontFamily = InterFontFamily,
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = if (!record.outTime.isNullOrBlank()) 15.sp else 12.sp,
                                 color = if (!record.outTime.isNullOrBlank()) Color(0xFF0F172A) else Color(0xFF94A3B8)
                             )
                         }
@@ -2537,7 +2539,7 @@ private fun AttendanceRecordDetailDialog(
                                         modifier = Modifier.size(14.dp)
                                     )
                                     Text(
-                                        text = "Timestamp",
+                                        text = s.timestampLabel,
                                         fontFamily = InterFontFamily,
                                         fontSize = 12.sp,
                                         color = Color(0xFF64748B)

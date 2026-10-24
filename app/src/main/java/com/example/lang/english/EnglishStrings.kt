@@ -119,6 +119,12 @@ object EnglishStrings : AppStrings {
     override val punchLocation: String = "Punch Location"
     override val recordIdLabel: String = "Record ID"
     override val punchDate: String = "Date"
+    override val checkInLabel: String = "Check-In"
+    override val checkOutLabel: String = "Check-Out"
+    override val statusIn: String = "IN"
+    override val statusOut: String = "OUT"
+    override val timestampLabel: String = "Timestamp"
+    override val retryButton: String = "Retry"
 
     // Face Enrollment
     override val faceEnrollmentTitle: String = "Face Registration"

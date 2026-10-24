@@ -28,8 +28,8 @@ object GujratiStrings : AppStrings {
     override val noFaceCaption: String = "કોઈ ચહેરો મળ્યો નથી. ફરી પ્રયાસ કરો."
 
     // UI Screen Labels & Buttons
-    override val inButton: String = "IN"
-    override val outButton: String = "OUT"
+    override val inButton: String = "ચેક-ઇન"
+    override val outButton: String = "ચેક-આઉટ"
     override val captureButton: String = "હાજરી નોંધો (Capture)"
     override val scanningButton: String = "સ્કેન થઈ રહ્યું છે..."
     override val submittingButton: String = "નોંધાઈ રહ્યું છે..."
@@ -111,14 +111,20 @@ object GujratiStrings : AppStrings {
     override val totalPunches: String = "કુલ પંચ"
     override val filterAll: String = "બધા (૧ મહિનો)"
     override val filterToday: String = "આજે"
-    override val filterIn: String = "માત્ર Check-In"
-    override val filterOut: String = "Check-Out થયેલ"
+    override val filterIn: String = "માત્ર ચેક-ઇન"
+    override val filterOut: String = "ચેક-આઉટ થયેલ"
     override val totalEntries: String = "કુલ રેકોર્ડ"
     override val recordDetailsTitle: String = "હાજરી વિગત (Attendance Details)"
     override val notCheckedOutYet: String = "હજુ ચેક-આઉટ થયું નથી"
     override val punchLocation: String = "હાજરી સ્થળ"
     override val recordIdLabel: String = "રેકોર્ડ આઈડી"
     override val punchDate: String = "તારીખ"
+    override val checkInLabel: String = "ચેક-ઇન"
+    override val checkOutLabel: String = "ચેક-આઉટ"
+    override val statusIn: String = "IN"
+    override val statusOut: String = "OUT"
+    override val timestampLabel: String = "સમય"
+    override val retryButton: String = "ફરી પ્રયાસ કરો"
 
     // Face Enrollment
     override val faceEnrollmentTitle: String = "ચહેરો નોંધણી (Face Registration)"
@@ -174,9 +180,10 @@ object GujratiStrings : AppStrings {
     override fun localizeActivity(text: String): String {
         if (text.isBlank() || text == "--") return text
         return text
-            .replace("Check-out at", "ચેક-આઉટ:")
-            .replace("Check-in at", "ચેક-ઇન:")
-            .replace("Check out at", "ચેક-આઉટ:")
-            .replace("Check in at", "ચેક-ઇન:")
+            .replace(Regex("(?i)check[- ]?out at"), "ચેક-આઉટ:")
+            .replace(Regex("(?i)check[- ]?in at"), "ચેક-ઇન:")
+            .replace(Regex("(?i)checked out"), "ચેક આઉટ થયું")
+            .replace(Regex("(?i)checked in"), "ચેક ઇન થયું")
+            .replace(Regex("(?i)\\(offline\\)"), "(ઑફલાઇન)")
     }
 }
