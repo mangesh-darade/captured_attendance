@@ -1039,6 +1039,7 @@ fun AttendanceKioskScreen(
                 merchantCode = uiState.companyCode,
                 shopName = uiState.tenantSiteName.orEmpty(),
                 tenantLogoUrl = uiState.tenantLogoUrl,
+                currentMasterUrl = uiState.masterUrl,
                 setupComplete = uiState.setupComplete,
                 isSettingUp = uiState.isSettingUp,
                 setupError = uiState.setupError,
@@ -1047,7 +1048,7 @@ fun AttendanceKioskScreen(
                 loginError = uiState.loginError,
                 isOnline = uiState.isOnline,
                 onOpenSettings = { viewModel.onSettingsClicked() },
-                onSetup = { code -> viewModel.setupWithAndroidCode("", code) },
+                onSetup = { url, code -> viewModel.setupWithAndroidCode(url, code) },
                 onLogin = { phone, password -> viewModel.login(phone, password) },
                 onViewLogs = { showDiagnosticsDialog = true }
             )
@@ -3062,6 +3063,7 @@ private fun MerchantCodeScreen(
     merchantCode: String,
     shopName: String,
     tenantLogoUrl: String? = null,
+    currentMasterUrl: String = "",
     setupComplete: Boolean,
     isSettingUp: Boolean,
     setupError: String?,
@@ -3070,7 +3072,7 @@ private fun MerchantCodeScreen(
     loginError: String?,
     isOnline: Boolean,
     onOpenSettings: () -> Unit,
-    onSetup: (String) -> Unit,
+    onSetup: (String, String) -> Unit,
     onLogin: (String, String) -> Unit,
     onViewLogs: (() -> Unit)? = null
 ) {
@@ -3078,8 +3080,16 @@ private fun MerchantCodeScreen(
     var usernameText by remember { mutableStateOf(savedPhone) }
     var passwordText by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var showServerUrlDialog by remember { mutableStateOf(false) }
+    var serverUrlInput by remember { mutableStateOf(currentMasterUrl) }
     val linked = setupComplete && setupError.isNullOrBlank() && androidCode.isNotBlank()
     val scrollState = rememberScrollState()
+
+    LaunchedEffect(currentMasterUrl) {
+        if (serverUrlInput.isBlank()) {
+            serverUrlInput = currentMasterUrl
+        }
+    }
 
     LaunchedEffect(codeText) {
         val code = codeText.trim()
@@ -3090,7 +3100,7 @@ private fun MerchantCodeScreen(
             return@LaunchedEffect
         }
         delay(500)
-        onSetup(code)
+        onSetup("", code)
     }
 
     LaunchedEffect(androidCode) {
@@ -3402,8 +3412,24 @@ private fun MerchantCodeScreen(
                                     Spacer(modifier = Modifier.height(4.dp))
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.End
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
+                                        TextButton(
+                                            onClick = {
+                                                serverUrlInput = currentMasterUrl
+                                                showServerUrlDialog = true
+                                            },
+                                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = "Change Server / सर्वर URL बदला",
+                                                fontFamily = InterFontFamily,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = BrandPrimary
+                                            )
+                                        }
                                         TextButton(
                                             onClick = { onViewLogs?.invoke() },
                                             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
@@ -3466,6 +3492,56 @@ private fun MerchantCodeScreen(
                     color = Color(0xFF334155)
                 )
             }
+        }
+
+        if (showServerUrlDialog) {
+            AlertDialog(
+                onDismissRequest = { showServerUrlDialog = false },
+                title = {
+                    Text(
+                        text = "Server Configuration",
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Enter the Super Admin or ERP server URL for this device:",
+                            fontFamily = InterFontFamily,
+                            fontSize = 13.sp,
+                            color = Color(0xFF64748B)
+                        )
+                        OutlinedTextField(
+                            value = serverUrlInput,
+                            onValueChange = { serverUrlInput = it },
+                            placeholder = { Text("e.g. http://10.52.1.246/elintom_superadmin/") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showServerUrlDialog = false
+                            val targetCode = codeText.trim()
+                            if (targetCode.isNotEmpty()) {
+                                onSetup(serverUrlInput.trim(), targetCode)
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
+                    ) {
+                        Text("Save & Connect")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showServerUrlDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
         }
     }
 }
