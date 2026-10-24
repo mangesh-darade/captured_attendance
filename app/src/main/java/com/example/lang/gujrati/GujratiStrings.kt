@@ -50,6 +50,57 @@ object GujratiStrings : AppStrings {
     override val lastActivityPrefix: String = "છેલ્લી પ્રવૃત્તિ"
     override val poweredBy: String = "Powered by"
 
+    // Bottom Navigation Tabs
+    override val homeTab: String = "હોમ"
+    override val captureTab: String = "હાજરી"
+    override val settingsTab: String = "સેટિંગ્સ"
+
+    // Merchant Code & Login Screen
+    override val merchantCodeLabel: String = "મર્ચન્ટ કોડ (Merchant Code)"
+    override val merchantCodePlaceholder: String = "૫ અંકનો કોડ દાખલ કરો (દા.ત. LH022)"
+    override val phoneLabel: String = "એડમિન / સુપરવાઇઝર ફોન નંબર"
+    override val phonePlaceholder: String = "નોંધાયેલ મોબાઈલ નંબર દાખલ કરો"
+    override val passwordLabel: String = "પાસવર્ડ"
+    override val passwordPlaceholder: String = "પાસવર્ડ દાખલ કરો"
+    override val loginButton: String = "કનેક્ટ કરો અને લૉગિન કરો"
+    override val connectingToMerchant: String = "કનેક્ટ થઈ રહ્યું છે..."
+    override val changeServerButton: String = "સર્વર બદલો"
+    override val viewErrorLogsButton: String = "ભૂલ લોગ જુઓ"
+    override val serverConfigTitle: String = "સર્વર રૂપરેખાંકન"
+    override val serverConfigDesc: String = "સ્થાનિક વિકાસ સર્વર અથવા વૈવિધ્યપૂર્ણ એન્ડપોઇન્ટ હોય તો URL બદલો."
+    override val saveAndConnectButton: String = "સાચવો અને કનેક્ટ કરો"
+
+    // Settings Screen
+    override val settingsTitle: String = "કિયોસ્ક સેટિંગ્સ"
+    override val settingsSubtitle: String = "ઉપકરણ પરવાનગીઓ, બાયોમેટ્રિક્સ, ભાષા અને સિસ્ટમ સ્થિતિ ગોઠવો"
+    override val faceBiometricTitle: String = "ચહેરો બાયોમેટ્રિક હાજરી"
+    override val faceBiometricAdminDesc: String = "એડમિન મોડ: કર્મચારીને આપમેળે ઓળખીને હાજરી નોંધે છે"
+    override val faceBiometricUserDesc: String = "યુઝર મોડ: નોંધાયેલ ચહેરો ચકાસીને હાજરી નોંધે છે"
+    override val chooseLanguageSubtitle: String = "કિયોસ્ક પ્રદર્શન અને સંદેશાઓ માટે ભાષા પસંદ કરો"
+    override val systemDiagnosticsTitle: String = "સિસ્ટમ અને ડાયગ્નોસ્ટિક્સ"
+    override val systemDiagnosticsDesc: String = "લોગ તપાસો, નેટવર્ક કનેક્ટિવિટી અને સિસ્ટમ સ્થિતિ ચકાસો"
+    override val viewAppLogs: String = "એપ્લિકેશન લોગ જુઓ"
+    override val configureServerUrl: String = "સર્વર URL બદલો"
+    override val confirmLogoutTitle: String = "લૉગ આઉટની ખાતરી કરો"
+    override val confirmLogoutDesc: String = "શું તમે ખરેખર આ કિયોસ્ક ઉપકરણમાંથી લૉગ આઉટ કરવા માંગો છો?"
+    override val signedInText: String = "લૉગિન થયેલ ખાતું"
+
+    // Today Attendance Dialog
+    override val todayAttendanceTitle: String = "આજની હાજરી (Today's Attendance)"
+    override val todayAttendanceSubtitle: String = "આજના કર્મચારીઓની હાજરી અને પંચ વિગતો"
+    override val searchEmployeePlaceholder: String = "કર્મચારી નામ અથવા આઈડીથી શોધો..."
+    override val noRecordsToday: String = "આજ માટે કોઈ હાજરી રેકોર્ડ મળ્યો નથી."
+    override val totalPresent: String = "હાજર"
+    override val totalPunches: String = "કુલ પંચ"
+
+    // Face Enrollment
+    override val faceEnrollmentTitle: String = "ચહેરો નોંધણી (Face Registration)"
+    override val selectEmployeeToEnroll: String = "ચહેરો નોંધવા માટે કર્મચારી પસંદ કરો"
+    override val registerFaceButton: String = "ચહેરો નોંધો"
+    override val faceRegisteredSuccess: String = "ચહેરો સફળતાપૂર્વક નોંધાયો!"
+    override val faceRegisterFailed: String = "ચહેરો નોંધણી નિષ્ફળ રહી. કૃપા કરીને ફરી પ્રયાસ કરો."
+    override val lookDirectlyAtCamera: String = "કૃપા કરીને સારા પ્રકાશમાં સીધા કેમેરા સામે જુઓ"
+
     override fun localizeStatus(status: String): String {
         if (status.isBlank()) return status
         val lower = status.lowercase()

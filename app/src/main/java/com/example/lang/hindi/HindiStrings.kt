@@ -50,6 +50,57 @@ object HindiStrings : AppStrings {
     override val lastActivityPrefix: String = "पिछली गतिविधि"
     override val poweredBy: String = "Powered by"
 
+    // Bottom Navigation Tabs
+    override val homeTab: String = "होम"
+    override val captureTab: String = "उपस्थिति"
+    override val settingsTab: String = "सेटिंग्स"
+
+    // Merchant Code & Login Screen
+    override val merchantCodeLabel: String = "मर्चेंट कोड (Merchant Code)"
+    override val merchantCodePlaceholder: String = "5 अंकों का कोड दर्ज करें (उदा. LH022)"
+    override val phoneLabel: String = "एडमिन / सुपरवाइजर फोन नंबर"
+    override val phonePlaceholder: String = "पंजीकृत मोबाइल नंबर दर्ज करें"
+    override val passwordLabel: String = "पासवर्ड"
+    override val passwordPlaceholder: String = "पासवर्ड दर्ज करें"
+    override val loginButton: String = "कनेक्ट करें और लॉगिन करें"
+    override val connectingToMerchant: String = "कनेक्ट हो रहा है..."
+    override val changeServerButton: String = "सर्वर बदलें"
+    override val viewErrorLogsButton: String = "एरर लॉग देखें"
+    override val serverConfigTitle: String = "सर्वर कॉन्फ़िगरेशन"
+    override val serverConfigDesc: String = "लोकल डेवलपमेंट सर्वर या कस्टम एंडपॉइंट होने पर URL बदलें।"
+    override val saveAndConnectButton: String = "सहेजें और कनेक्ट करें"
+
+    // Settings Screen
+    override val settingsTitle: String = "कियोस्क सेटिंग्स"
+    override val settingsSubtitle: String = "डिवाइस अनुमतियां, बायोमेट्रिक्स, भाषा और डायग्नोस्टिक्स प्रबंधित करें"
+    override val faceBiometricTitle: String = "चेहरा बायोमेट्रिक उपस्थिति"
+    override val faceBiometricAdminDesc: String = "एडमिन मोड: कर्मचारी को स्वतः पहचानकर उपस्थिति दर्ज करता है"
+    override val faceBiometricUserDesc: String = "यूजर मोड: पंजीकृत चेहरा सत्यापित करके उपस्थिति दर्ज करता है"
+    override val chooseLanguageSubtitle: String = "कियोस्क डिस्प्ले और संदेशों के लिए भाषा चुनें"
+    override val systemDiagnosticsTitle: String = "सिस्टम और डायग्नोस्टिक्स"
+    override val systemDiagnosticsDesc: String = "लॉग्स जांचें, नेटवर्क कनेक्टिविटी और सिस्टम स्थिति देखें"
+    override val viewAppLogs: String = "ऐप लॉग देखें"
+    override val configureServerUrl: String = "सर्वर URL बदलें"
+    override val confirmLogoutTitle: String = "लॉग आउट की पुष्टि करें"
+    override val confirmLogoutDesc: String = "क्या आप वास्तव में इस कियोस्क डिवाइस से लॉग आउट करना चाहते हैं?"
+    override val signedInText: String = "लॉगिन खाता"
+
+    // Today Attendance Dialog
+    override val todayAttendanceTitle: String = "आज की उपस्थिति (Today's Attendance)"
+    override val todayAttendanceSubtitle: String = "आज के कर्मचारियों की उपस्थिति और पंच विवरण"
+    override val searchEmployeePlaceholder: String = "कर्मचारी नाम या आईडी से खोजें..."
+    override val noRecordsToday: String = "आज के लिए कोई उपस्थिति रिकॉर्ड नहीं मिला।"
+    override val totalPresent: String = "उपस्थित"
+    override val totalPunches: String = "कुल पंच"
+
+    // Face Enrollment
+    override val faceEnrollmentTitle: String = "चेहरा पंजीकरण (Face Registration)"
+    override val selectEmployeeToEnroll: String = "चेहरा पंजीकृत करने के लिए कर्मचारी चुनें"
+    override val registerFaceButton: String = "चेहरा पंजीकृत करें"
+    override val faceRegisteredSuccess: String = "चेहरा सफलतापूर्वक पंजीकृत किया गया!"
+    override val faceRegisterFailed: String = "चेहरा पंजीकरण विफल रहा। कृपया पुनः प्रयास करें।"
+    override val lookDirectlyAtCamera: String = "कृपया अच्छी रोशनी में सीधे कैमरे की ओर देखें"
+
     override fun localizeStatus(status: String): String {
         if (status.isBlank()) return status
         val lower = status.lowercase()

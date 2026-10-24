@@ -50,6 +50,57 @@ object MarathiStrings : AppStrings {
     override val lastActivityPrefix: String = "मागील नोंद"
     override val poweredBy: String = "Powered by"
 
+    // Bottom Navigation Tabs
+    override val homeTab: String = "मुख्य पृष्ठ"
+    override val captureTab: String = "हजेरी"
+    override val settingsTab: String = "सेटिंग्ज"
+
+    // Merchant Code & Login Screen
+    override val merchantCodeLabel: String = "मर्चंट कोड (Merchant Code)"
+    override val merchantCodePlaceholder: String = "५ अंकी कोड टाका (उदा. LH022)"
+    override val phoneLabel: String = "प्रशासक / सुपरवायझर फोन नंबर"
+    override val phonePlaceholder: String = "नोंदणीकृत मोबाईल नंबर टाका"
+    override val passwordLabel: String = "पासवर्ड"
+    override val passwordPlaceholder: String = "पासवर्ड टाका"
+    override val loginButton: String = "कनेक्ट करा आणि लॉगिन करा"
+    override val connectingToMerchant: String = "कनेक्ट करत आहे..."
+    override val changeServerButton: String = "सर्व्हर बदला"
+    override val viewErrorLogsButton: String = "एरर लॉग पहा"
+    override val serverConfigTitle: String = "सर्व्हर कॉन्फिगरेशन"
+    override val serverConfigDesc: String = "स्थानिक डेव्हलपमेंट सर्व्हर किंवा कस्टम एंडपॉईंट असल्यास URL बदला."
+    override val saveAndConnectButton: String = "सेव्ह आणि कनेक्ट करा"
+
+    // Settings Screen
+    override val settingsTitle: String = "किऑस्क सेटिंग्ज"
+    override val settingsSubtitle: String = "डिव्हाइस परवानग्या, बायोमेट्रिक्स, भाषा आणि निदान व्यवस्थापित करा"
+    override val faceBiometricTitle: String = "चेहरा बायोमेट्रिक हजेरी"
+    override val faceBiometricAdminDesc: String = "अॅडमिन मोड: कर्मचारी स्वयंचलित ओळखून हजेरी नोंदवतो"
+    override val faceBiometricUserDesc: String = "युझर मोड: नोंदणीकृत चेहरा पडताळून हजेरी नोंदवतो"
+    override val chooseLanguageSubtitle: String = "किऑस्क स्क्रीन आणि सूचनांसाठी भाषा निवडा"
+    override val systemDiagnosticsTitle: String = "सिस्टम आणि डायग्नोस्टिक्स"
+    override val systemDiagnosticsDesc: String = "लॉग्स तपासा, नेटवर्क कनेक्टिव्हिटी आणि सिस्टम स्थिती तपासा"
+    override val viewAppLogs: String = "अॅप लॉग पहा"
+    override val configureServerUrl: String = "सर्व्हर URL बदला"
+    override val confirmLogoutTitle: String = "लॉग आउट निश्चित करा"
+    override val confirmLogoutDesc: String = "तुम्हाला या किऑस्क डिव्हाइसवरून लॉग आउट करायचे आहे का?"
+    override val signedInText: String = "लॉगिन केलेले खाते"
+
+    // Today Attendance Dialog
+    override val todayAttendanceTitle: String = "आजची हजेरी (Today's Attendance)"
+    override val todayAttendanceSubtitle: String = "आजच्या कर्मचाऱ्यांची उपस्थिती आणि पंच नोंदी"
+    override val searchEmployeePlaceholder: String = "कर्मचारी नाव किंवा आयडीने शोधा..."
+    override val noRecordsToday: String = "आजच्या हजेरीची कोणतीही नोंद आढळली नाही."
+    override val totalPresent: String = "उपस्थित"
+    override val totalPunches: String = "एकूण पंच"
+
+    // Face Enrollment
+    override val faceEnrollmentTitle: String = "चेहरा नोंदणी (Face Registration)"
+    override val selectEmployeeToEnroll: String = "चेहरा नोंदवण्यासाठी कर्मचारी निवडा"
+    override val registerFaceButton: String = "चेहरा नोंदवा"
+    override val faceRegisteredSuccess: String = "चेहरा यशस्वीपणे नोंदवला गेला!"
+    override val faceRegisterFailed: String = "चेहरा नोंदणी अयशस्वी. कृपया पुन्हा प्रयत्न करा."
+    override val lookDirectlyAtCamera: String = "कृपया चांगल्या प्रकाशात थेट कॅमेऱ्याकडे पहा"
+
     override fun localizeStatus(status: String): String {
         if (status.isBlank()) return status
         val lower = status.lowercase()

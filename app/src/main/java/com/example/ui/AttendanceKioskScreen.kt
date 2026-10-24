@@ -935,6 +935,7 @@ fun AttendanceKioskScreen(
                 records = uiState.todayRecords,
                 isLoading = uiState.isTodayAttendanceLoading,
                 errorMessage = uiState.todayAttendanceError,
+                currentLanguage = uiState.appLanguage,
                 onRefresh = { viewModel.fetchTodayAttendance() },
                 onDismiss = { viewModel.closeTodayAttendance() }
             )
@@ -946,6 +947,7 @@ fun AttendanceKioskScreen(
                     users = uiState.enrollmentUsers,
                     isLoading = uiState.isEnrollmentLoading,
                     errorMsg = uiState.enrollmentErrorMsg,
+                    currentLanguage = uiState.appLanguage,
                     onSelectUser = { viewModel.selectEnrollmentUser(it) },
                     onRefreshUsers = { viewModel.fetchEnrollmentUsers() },
                     onDismiss = { viewModel.closeFaceEnrollment() }
@@ -988,7 +990,7 @@ fun AttendanceKioskScreen(
                 onDismissRequest = { confirmLogout = false },
                 title = {
                     Text(
-                        text = "Log out?",
+                        text = s.confirmLogoutTitle,
                         fontFamily = InterFontFamily,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
@@ -996,7 +998,7 @@ fun AttendanceKioskScreen(
                 },
                 text = {
                     Text(
-                        text = "Are you sure you want to log out, ${uiState.loggedInUserName.ifBlank { "this user" }}?",
+                        text = "${s.confirmLogoutDesc} (${uiState.loggedInUserName.ifBlank { "User" }})",
                         fontFamily = InterFontFamily,
                         color = TextMuted
                     )
@@ -1040,6 +1042,7 @@ fun AttendanceKioskScreen(
                 shopName = uiState.tenantSiteName.orEmpty(),
                 tenantLogoUrl = uiState.tenantLogoUrl,
                 currentMasterUrl = uiState.masterUrl,
+                currentLanguage = uiState.appLanguage,
                 setupComplete = uiState.setupComplete,
                 isSettingUp = uiState.isSettingUp,
                 setupError = uiState.setupError,
@@ -1047,6 +1050,7 @@ fun AttendanceKioskScreen(
                 isLoggingIn = uiState.isLoggingIn,
                 loginError = uiState.loginError,
                 isOnline = uiState.isOnline,
+                onLanguageSelected = { viewModel.onLanguageSelected(it) },
                 onOpenSettings = { viewModel.onSettingsClicked() },
                 onSetup = { url, code -> viewModel.setupWithAndroidCode(url, code) },
                 onLogin = { phone, password -> viewModel.login(phone, password) },
@@ -1454,7 +1458,7 @@ private fun ProfileDialog(
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "Signed in",
+                    text = s.signedInText,
                     fontFamily = InterFontFamily,
                     fontSize = 13.sp,
                     color = TextMuted
@@ -1591,14 +1595,14 @@ private fun ProfileDialog(
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Face Enrollment",
+                                text = s.faceEnrollmentTitle,
                                 fontFamily = InterFontFamily,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = TextPrimary
                             )
                             Text(
-                                text = if (isAdmin) "Manage employee face biometrics" else "Register your face biometric",
+                                text = if (isAdmin) s.faceBiometricAdminDesc else s.faceBiometricUserDesc,
                                 fontFamily = InterFontFamily,
                                 fontSize = 12.sp,
                                 color = TextMuted
@@ -1630,9 +1634,11 @@ private fun TodayAttendanceDialog(
     records: List<AttendanceRecordItem>,
     isLoading: Boolean,
     errorMessage: String?,
+    currentLanguage: String = "en",
     onRefresh: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val s = LangManager.getStrings(currentLanguage)
     var searchQuery by remember { mutableStateOf("") }
     val filteredRecords = remember(records, searchQuery) {
         if (searchQuery.isBlank()) records
@@ -1645,7 +1651,7 @@ private fun TodayAttendanceDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close", fontFamily = InterFontFamily, color = TextMuted)
+                Text(s.closeButton, fontFamily = InterFontFamily, color = TextMuted)
             }
         },
         title = {
@@ -1674,14 +1680,14 @@ private fun TodayAttendanceDialog(
                     }
                     Column {
                         Text(
-                            text = "Today's Attendance",
+                            text = s.todayAttendanceTitle,
                             fontFamily = InterFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp,
                             color = TextPrimary
                         )
                         Text(
-                            text = "Punches & summary",
+                            text = s.todayAttendanceSubtitle,
                             fontFamily = InterFontFamily,
                             fontSize = 11.sp,
                             color = TextMuted
@@ -1733,7 +1739,7 @@ private fun TodayAttendanceDialog(
                                 color = Color(0xFF0F172A)
                             )
                             Text(
-                                text = "Present",
+                                text = s.totalPresent,
                                 fontFamily = InterFontFamily,
                                 fontSize = 11.sp,
                                 color = TextMuted
@@ -1755,7 +1761,7 @@ private fun TodayAttendanceDialog(
                                 color = Color(0xFF15803D)
                             )
                             Text(
-                                text = "In",
+                                text = s.inButton,
                                 fontFamily = InterFontFamily,
                                 fontSize = 11.sp,
                                 color = TextMuted
@@ -1777,7 +1783,7 @@ private fun TodayAttendanceDialog(
                                 color = Color(0xFFB45309)
                             )
                             Text(
-                                text = "Out",
+                                text = s.outButton,
                                 fontFamily = InterFontFamily,
                                 fontSize = 11.sp,
                                 color = TextMuted
@@ -1792,7 +1798,7 @@ private fun TodayAttendanceDialog(
                     onValueChange = { searchQuery = it },
                     placeholder = {
                         Text(
-                            text = "Search employee...",
+                            text = s.searchEmployeePlaceholder,
                             fontFamily = InterFontFamily,
                             fontSize = 13.sp,
                             color = TextMuted
@@ -2013,11 +2019,13 @@ private fun AttendanceRecordRow(record: AttendanceRecordItem) {
 private fun EnrollmentUserListDialog(
     users: List<EnrollmentUserItem>,
     isLoading: Boolean,
-      errorMsg: String?,
+    errorMsg: String?,
+    currentLanguage: String = "en",
     onSelectUser: (EnrollmentUserItem) -> Unit,
     onRefreshUsers: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val s = LangManager.getStrings(currentLanguage)
     var searchQuery by remember { mutableStateOf("") }
     val filteredUsers = remember(users, searchQuery) {
         if (searchQuery.isBlank()) users
@@ -2031,7 +2039,7 @@ private fun EnrollmentUserListDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Close", fontFamily = InterFontFamily, color = TextMuted)
+                Text(s.closeButton, fontFamily = InterFontFamily, color = TextMuted)
             }
         },
         title = {
@@ -2061,14 +2069,14 @@ private fun EnrollmentUserListDialog(
                     }
                     Column {
                         Text(
-                            text = "Face Enrollment",
+                            text = s.faceEnrollmentTitle,
                             fontFamily = InterFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 17.sp,
                             color = TextPrimary
                         )
                         Text(
-                            text = "Select employee to register camera scan",
+                            text = s.selectEmployeeToEnroll,
                             fontFamily = InterFontFamily,
                             fontSize = 11.sp,
                             color = TextMuted
@@ -3064,6 +3072,7 @@ private fun MerchantCodeScreen(
     shopName: String,
     tenantLogoUrl: String? = null,
     currentMasterUrl: String = "",
+    currentLanguage: String = "en",
     setupComplete: Boolean,
     isSettingUp: Boolean,
     setupError: String?,
@@ -3071,11 +3080,13 @@ private fun MerchantCodeScreen(
     isLoggingIn: Boolean,
     loginError: String?,
     isOnline: Boolean,
+    onLanguageSelected: (String) -> Unit = {},
     onOpenSettings: () -> Unit,
     onSetup: (String, String) -> Unit,
     onLogin: (String, String) -> Unit,
     onViewLogs: (() -> Unit)? = null
 ) {
+    val s = LangManager.getStrings(currentLanguage)
     var codeText by remember { mutableStateOf(androidCode) }
     var usernameText by remember { mutableStateOf(savedPhone) }
     var passwordText by remember { mutableStateOf("") }
@@ -3145,7 +3156,7 @@ private fun MerchantCodeScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.weight(0.7f, fill = false))
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(36.dp))
 
             // Logo from Web App inside pure white background card
             Surface(
@@ -3188,7 +3199,40 @@ private fun MerchantCodeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Language Selector Pills on Login/Setup Screen
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val languages = listOf(
+                    "en" to "English",
+                    "mr" to "मराठी",
+                    "hi" to "हिंदी",
+                    "gu" to "ગુજરાતી"
+                )
+                languages.forEach { (code, label) ->
+                    val isSelected = currentLanguage.equals(code, ignoreCase = true)
+                    Surface(
+                        shape = RoundedCornerShape(16.dp),
+                        color = if (isSelected) Color(0xFF006D77) else Color.White,
+                        border = BorderStroke(1.dp, if (isSelected) Color(0xFF006D77) else Color(0xFFE2E8F0)),
+                        modifier = Modifier.clickable { onLanguageSelected(code) }
+                    ) {
+                        Text(
+                            text = label,
+                            fontFamily = InterFontFamily,
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSelected) Color.White else Color(0xFF475569),
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             if (linked) {
                 // Professional Elevated Login Card
@@ -3208,7 +3252,7 @@ private fun MerchantCodeScreen(
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
-                                text = "Username",
+                                text = s.phoneLabel,
                                 fontFamily = InterFontFamily,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 14.sp,
@@ -3217,7 +3261,7 @@ private fun MerchantCodeScreen(
                             OutlinedTextField(
                                 value = usernameText,
                                 onValueChange = { usernameText = it },
-                                placeholder = { Text("Username or phone", fontSize = 14.sp, color = Color(0xFF94A3B8)) },
+                                placeholder = { Text(s.phonePlaceholder, fontSize = 14.sp, color = Color(0xFF94A3B8)) },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Default.Person,
@@ -3241,7 +3285,7 @@ private fun MerchantCodeScreen(
 
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
-                                text = "Password",
+                                text = s.passwordLabel,
                                 fontFamily = InterFontFamily,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 14.sp,
@@ -3250,7 +3294,7 @@ private fun MerchantCodeScreen(
                             OutlinedTextField(
                                 value = passwordText,
                                 onValueChange = { passwordText = it },
-                                placeholder = { Text("Password", fontSize = 14.sp, color = Color(0xFF94A3B8)) },
+                                placeholder = { Text(s.passwordPlaceholder, fontSize = 14.sp, color = Color(0xFF94A3B8)) },
                                 leadingIcon = {
                                     Icon(
                                         imageVector = Icons.Default.Lock,
@@ -3335,7 +3379,7 @@ private fun MerchantCodeScreen(
                                 )
                             } else {
                                 Text(
-                                    text = "Log in",
+                                    text = s.loginButton,
                                     fontFamily = InterFontFamily,
                                     fontWeight = FontWeight.SemiBold,
                                     fontSize = 16.sp,
@@ -3363,7 +3407,7 @@ private fun MerchantCodeScreen(
                     ) {
                         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             Text(
-                                text = "Merchant Code",
+                                text = s.merchantCodeLabel,
                                 fontFamily = InterFontFamily,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 14.sp,
@@ -3372,7 +3416,7 @@ private fun MerchantCodeScreen(
                             OutlinedTextField(
                                 value = codeText,
                                 onValueChange = { codeText = it.uppercase() },
-                                placeholder = { Text("e.g. LH02", fontSize = 14.sp, color = Color(0xFF94A3B8)) },
+                                placeholder = { Text(s.merchantCodePlaceholder, fontSize = 14.sp, color = Color(0xFF94A3B8)) },
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp),
                                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
@@ -3388,7 +3432,7 @@ private fun MerchantCodeScreen(
 
                         if (!isOnline) {
                             Text(
-                                text = "No internet connection. Setup will work when internet is back.",
+                                text = s.noInternetWaiting,
                                 fontFamily = InterFontFamily,
                                 fontSize = 12.sp,
                                 color = Color(0xFFDC2626)
@@ -3423,7 +3467,7 @@ private fun MerchantCodeScreen(
                                             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                                         ) {
                                             Text(
-                                                text = "Change Server / सर्वर URL बदला",
+                                                text = s.changeServerButton,
                                                 fontFamily = InterFontFamily,
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
@@ -3435,7 +3479,7 @@ private fun MerchantCodeScreen(
                                             contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp)
                                         ) {
                                             Text(
-                                                text = "View Error Logs / तपशील पहा",
+                                                text = s.viewErrorLogsButton,
                                                 fontFamily = InterFontFamily,
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.SemiBold,
@@ -3457,7 +3501,7 @@ private fun MerchantCodeScreen(
                                     strokeWidth = 2.dp
                                 )
                                 Text(
-                                    text = "Connecting to merchant...",
+                                    text = s.connectingToMerchant,
                                     fontFamily = InterFontFamily,
                                     fontSize = 13.sp,
                                     color = BrandPrimary
@@ -3478,7 +3522,7 @@ private fun MerchantCodeScreen(
                 modifier = Modifier.padding(bottom = 28.dp)
             ) {
                 Text(
-                    text = "Powered by ",
+                    text = "${s.poweredBy} ",
                     fontFamily = InterFontFamily,
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.Normal,
@@ -3499,7 +3543,7 @@ private fun MerchantCodeScreen(
                 onDismissRequest = { showServerUrlDialog = false },
                 title = {
                     Text(
-                        text = "Server Configuration",
+                        text = s.serverConfigTitle,
                         fontFamily = InterFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp
@@ -3508,7 +3552,7 @@ private fun MerchantCodeScreen(
                 text = {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "Enter the Super Admin or ERP server URL for this device:",
+                            text = s.serverConfigDesc,
                             fontFamily = InterFontFamily,
                             fontSize = 13.sp,
                             color = Color(0xFF64748B)
@@ -3533,12 +3577,12 @@ private fun MerchantCodeScreen(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary)
                     ) {
-                        Text("Save & Connect")
+                        Text(s.saveAndConnectButton)
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showServerUrlDialog = false }) {
-                        Text("Cancel")
+                        Text(s.cancelButton)
                     }
                 }
             )
@@ -3843,6 +3887,7 @@ private fun KioskBottomNavigationBar(
     currentLanguage: String,
     modifier: Modifier = Modifier
 ) {
+    val s = LangManager.getStrings(currentLanguage)
     Surface(
         modifier = modifier.fillMaxWidth(),
         color = Color.White,
@@ -3888,11 +3933,7 @@ private fun KioskBottomNavigationBar(
                     }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = when (currentLanguage) {
-                            "hi" -> "होम"
-                            "gu" -> "હોમ"
-                            else -> "Home"
-                        },
+                        text = s.homeTab,
                         fontFamily = InterFontFamily,
                         fontSize = 11.sp,
                         fontWeight = if (isHome) FontWeight.Bold else FontWeight.Medium,
@@ -3954,12 +3995,7 @@ private fun KioskBottomNavigationBar(
                     }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = when (currentLanguage) {
-                            "mr" -> "अटेंडन्स"
-                            "hi" -> "अटेंडेंस"
-                            "gu" -> "હાजरी"
-                            else -> "Capture"
-                        },
+                        text = s.captureTab,
                         fontFamily = InterFontFamily,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
@@ -4004,11 +4040,7 @@ private fun KioskBottomNavigationBar(
                     }
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = when (currentLanguage) {
-                            "hi" -> "सेटिंग्स"
-                            "gu" -> "સેટિંગ્સ"
-                            else -> "Settings"
-                        },
+                        text = s.settingsTab,
                         fontFamily = InterFontFamily,
                         fontSize = 11.sp,
                         fontWeight = if (isSettings) FontWeight.Bold else FontWeight.Medium,
@@ -4431,6 +4463,7 @@ private fun KioskSettingsScreen(
     onViewLogs: () -> Unit,
     onLogoutClick: () -> Unit
 ) {
+    val s = LangManager.getStrings(currentLanguage)
     val scrollState = rememberScrollState()
     var isLanguageExpanded by remember { mutableStateOf(true) }
     var isDiagnosticsExpanded by remember { mutableStateOf(true) }
@@ -4446,14 +4479,14 @@ private fun KioskSettingsScreen(
         // ── 1. Screen Title & Subtitle ──────────────────────────────
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                text = "Settings",
+                text = s.settingsTitle,
                 fontFamily = InterFontFamily,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF0F172A)
             )
             Text(
-                text = "Configure app preferences and system settings",
+                text = s.settingsSubtitle,
                 fontFamily = InterFontFamily,
                 fontSize = 13.sp,
                 color = Color(0xFF64748B)
@@ -4493,7 +4526,7 @@ private fun KioskSettingsScreen(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Face Biometric Enrollment",
+                        text = s.faceBiometricTitle,
                         fontFamily = InterFontFamily,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
@@ -4501,7 +4534,7 @@ private fun KioskSettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = if (uiState.isAdmin) "Manage and register employee faces" else "Register your face for attendance scan",
+                        text = if (uiState.isAdmin) s.faceBiometricAdminDesc else s.faceBiometricUserDesc,
                         fontFamily = InterFontFamily,
                         fontSize = 12.sp,
                         color = Color(0xFF64748B)
@@ -4559,14 +4592,14 @@ private fun KioskSettingsScreen(
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Language / भाषा",
+                            text = s.languageLabel,
                             fontFamily = InterFontFamily,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF0F172A)
                         )
                         Text(
-                            text = "Choose your preferred language",
+                            text = s.chooseLanguageSubtitle,
                             fontFamily = InterFontFamily,
                             fontSize = 12.sp,
                             color = Color(0xFF64748B)
@@ -4704,7 +4737,7 @@ private fun KioskSettingsScreen(
                     }
                     Column {
                         Text(
-                            text = "Auto Submit",
+                            text = s.autoSubmitLabel,
                             fontFamily = InterFontFamily,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
@@ -4712,7 +4745,7 @@ private fun KioskSettingsScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "Press Capture to mark attendance",
+                            text = if (uiState.isAutoSubmitEnabled) s.autoSubmitReady else s.autoSubmitManual,
                             fontFamily = InterFontFamily,
                             fontSize = 12.sp,
                             color = Color(0xFF64748B)
@@ -4769,14 +4802,14 @@ private fun KioskSettingsScreen(
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "System Diagnostics",
+                            text = s.systemDiagnosticsTitle,
                             fontFamily = InterFontFamily,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color(0xFF0F172A)
                         )
                         Text(
-                            text = "Troubleshoot and view logs",
+                            text = s.systemDiagnosticsDesc,
                             fontFamily = InterFontFamily,
                             fontSize = 12.sp,
                             color = Color(0xFF64748B)
@@ -4819,7 +4852,7 @@ private fun KioskSettingsScreen(
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Text(
-                                    text = "View App Error & Connection Logs",
+                                    text = s.viewAppLogs,
                                     fontFamily = InterFontFamily,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium,
@@ -4864,7 +4897,7 @@ private fun KioskSettingsScreen(
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Text(
-                                        text = "Configure Server URL",
+                                        text = s.configureServerUrl,
                                         fontFamily = InterFontFamily,
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Medium,
@@ -4901,7 +4934,7 @@ private fun KioskSettingsScreen(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Log out",
+                text = s.logoutButton,
                 fontFamily = InterFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,

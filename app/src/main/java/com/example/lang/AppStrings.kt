@@ -2,7 +2,13 @@ package com.example.lang
 
 /**
  * Interface contract defining all UI text, banners, toasts,
- * and HUD messages for the Attendance Kiosk application.
+ * dialogs, and HUD messages for the Attendance Kiosk application.
+ *
+ * Supported languages:
+ *  - en: English
+ *  - mr: मराठी (Marathi)
+ *  - hi: हिंदी (Hindi)
+ *  - gu: ગુજરાતી (Gujarati)
  */
 interface AppStrings {
     val langCode: String
@@ -32,7 +38,7 @@ interface AppStrings {
     val lookingForFaceChip: String
     val noFaceCaption: String
 
-    // UI Screen Labels & Buttons (Decoupled from Android R.string)
+    // UI Screen Labels & Buttons
     val inButton: String
     val outButton: String
     val captureButton: String
@@ -54,6 +60,57 @@ interface AppStrings {
     val fetchingLocation: String
     val lastActivityPrefix: String
     val poweredBy: String
+
+    // Bottom Navigation Tabs
+    val homeTab: String
+    val captureTab: String
+    val settingsTab: String
+
+    // Merchant Code & Login Screen
+    val merchantCodeLabel: String
+    val merchantCodePlaceholder: String
+    val phoneLabel: String
+    val phonePlaceholder: String
+    val passwordLabel: String
+    val passwordPlaceholder: String
+    val loginButton: String
+    val connectingToMerchant: String
+    val changeServerButton: String
+    val viewErrorLogsButton: String
+    val serverConfigTitle: String
+    val serverConfigDesc: String
+    val saveAndConnectButton: String
+
+    // Settings Screen
+    val settingsTitle: String
+    val settingsSubtitle: String
+    val faceBiometricTitle: String
+    val faceBiometricAdminDesc: String
+    val faceBiometricUserDesc: String
+    val chooseLanguageSubtitle: String
+    val systemDiagnosticsTitle: String
+    val systemDiagnosticsDesc: String
+    val viewAppLogs: String
+    val configureServerUrl: String
+    val confirmLogoutTitle: String
+    val confirmLogoutDesc: String
+    val signedInText: String
+
+    // Today Attendance Dialog
+    val todayAttendanceTitle: String
+    val todayAttendanceSubtitle: String
+    val searchEmployeePlaceholder: String
+    val noRecordsToday: String
+    val totalPresent: String
+    val totalPunches: String
+
+    // Face Enrollment
+    val faceEnrollmentTitle: String
+    val selectEmployeeToEnroll: String
+    val registerFaceButton: String
+    val faceRegisteredSuccess: String
+    val faceRegisterFailed: String
+    val lookDirectlyAtCamera: String
 
     // Dynamic message localizers
     fun localizeStatus(status: String): String
