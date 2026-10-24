@@ -55,6 +55,20 @@ object MarathiStrings : AppStrings {
     override val captureTab: String = "हजेरी"
     override val settingsTab: String = "सेटिंग्ज"
 
+    // Home Screen
+    override val helloPrefix: String = "नमस्कार"
+    override val adminRole: String = "प्रशासक"
+    override val employeeRole: String = "कर्मचारी"
+    override val todayStatusHeader: String = "आजची स्थिती"
+    override val checkedInStatus: String = "चेक इन झाले ✓"
+    override val checkedOutStatus: String = "चेक आउट झाले"
+    override val notCheckedInStatus: String = "हजेरी नोंदवली नाही"
+    override val notCheckedInDesc: String = "तुम्ही आज अजून हजेरी नोंदवलेली नाही."
+    override val quickActionsHeader: String = "जलद पर्याय"
+    override val todayLogTitle: String = "आजचा हजेरी लॉग"
+    override val todayLogSubtitle: String = "हजेरीच्या वेळा आणि नोंदी पहा"
+    override val faceBiometricSubtitle: String = "चेहरा स्कॅन नोंदवा किंवा बदला"
+
     // Merchant Code & Login Screen
     override val merchantCodeLabel: String = "मर्चंट कोड (Merchant Code)"
     override val merchantCodePlaceholder: String = "५ अंकी कोड टाका (उदा. LH022)"

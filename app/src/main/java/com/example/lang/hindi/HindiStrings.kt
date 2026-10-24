@@ -55,6 +55,20 @@ object HindiStrings : AppStrings {
     override val captureTab: String = "उपस्थिति"
     override val settingsTab: String = "सेटिंग्स"
 
+    // Home Screen
+    override val helloPrefix: String = "नमस्ते"
+    override val adminRole: String = "प्रशासक"
+    override val employeeRole: String = "कर्मचारी"
+    override val todayStatusHeader: String = "आज की स्थिति"
+    override val checkedInStatus: String = "चेक इन संपन्न ✓"
+    override val checkedOutStatus: String = "चेक आउट संपन्न"
+    override val notCheckedInStatus: String = "उपस्थिति दर्ज नहीं"
+    override val notCheckedInDesc: String = "आपने आज अभी तक उपस्थिति दर्ज नहीं की है।"
+    override val quickActionsHeader: String = "त्वरित विकल्प"
+    override val todayLogTitle: String = "आज का उपस्थिति लॉग"
+    override val todayLogSubtitle: String = "उपस्थिति के समय और विवरण देखें"
+    override val faceBiometricSubtitle: String = "चेहरा स्कैन पंजीकृत या अपडेट करें"
+
     // Merchant Code & Login Screen
     override val merchantCodeLabel: String = "मर्चेंट कोड (Merchant Code)"
     override val merchantCodePlaceholder: String = "5 अंकों का कोड दर्ज करें (उदा. LH022)"

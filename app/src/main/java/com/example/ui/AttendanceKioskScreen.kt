@@ -4072,6 +4072,7 @@ private fun KioskHomeScreen(
     onOpenFaceEnrollment: () -> Unit,
     onOpenSettings: () -> Unit
 ) {
+    val s = LangManager.getStrings(currentLanguage)
     val scrollState = rememberScrollState()
     val isCheckedIn = uiState.lastActivityText.contains("check-in", ignoreCase = true) ||
         uiState.lastActivityText.contains(" in", ignoreCase = true)
@@ -4119,7 +4120,7 @@ private fun KioskHomeScreen(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Hello, ${uiState.loggedInUserName.ifBlank { "Satol Admin" }}",
+                        text = "${s.helloPrefix}, ${uiState.loggedInUserName.ifBlank { "User" }}",
                         fontFamily = InterFontFamily,
                         fontWeight = FontWeight.Bold,
                         fontSize = 17.sp,
@@ -4143,7 +4144,7 @@ private fun KioskHomeScreen(
                                     fontSize = 10.sp
                                 )
                                 Text(
-                                    text = "Admin",
+                                    text = s.adminRole,
                                     fontFamily = InterFontFamily,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
@@ -4151,7 +4152,7 @@ private fun KioskHomeScreen(
                                 )
                             } else {
                                 Text(
-                                    text = "Employee",
+                                    text = s.employeeRole,
                                     fontFamily = InterFontFamily,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
@@ -4230,7 +4231,7 @@ private fun KioskHomeScreen(
                             )
                         }
                         Text(
-                            text = "TODAY'S STATUS",
+                            text = s.todayStatusHeader,
                             fontFamily = InterFontFamily,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -4241,9 +4242,9 @@ private fun KioskHomeScreen(
 
                     Text(
                         text = when {
-                            isCheckedIn -> "Checked In ✓"
-                            hasActivity -> "Checked Out"
-                            else        -> "Not Checked In"
+                            isCheckedIn -> s.checkedInStatus
+                            hasActivity -> s.checkedOutStatus
+                            else        -> s.notCheckedInStatus
                         },
                         fontFamily = InterFontFamily,
                         fontWeight = FontWeight.ExtraBold,
@@ -4255,7 +4256,7 @@ private fun KioskHomeScreen(
                         text = if (hasActivity)
                             localizeActivityText(uiState.lastActivityText, currentLanguage)
                         else
-                            "You haven't marked attendance today yet.",
+                            s.notCheckedInDesc,
                         fontFamily = InterFontFamily,
                         fontSize = 12.sp,
                         color = Color(0xFF64748B),
@@ -4292,7 +4293,7 @@ private fun KioskHomeScreen(
 
         // ── 3. Quick Actions Section (Check In Now removed as requested) ──
         Text(
-            text = "Quick Actions",
+            text = s.quickActionsHeader,
             fontFamily = InterFontFamily,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
@@ -4360,14 +4361,14 @@ private fun KioskHomeScreen(
                         }
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "Today's Log",
+                            text = s.todayLogTitle,
                             fontFamily = InterFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
                             color = Color(0xFF0F172A)
                         )
                         Text(
-                            text = "View in/out timestamps",
+                            text = s.todayLogSubtitle,
                             fontFamily = InterFontFamily,
                             fontSize = 11.sp,
                             color = Color(0xFF64748B)
@@ -4433,14 +4434,14 @@ private fun KioskHomeScreen(
                         }
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "Face Biometric",
+                            text = s.faceBiometricTitle,
                             fontFamily = InterFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
                             color = Color(0xFF0F172A)
                         )
                         Text(
-                            text = "Register / update scan",
+                            text = s.faceBiometricSubtitle,
                             fontFamily = InterFontFamily,
                             fontSize = 11.sp,
                             color = Color(0xFF64748B)

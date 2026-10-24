@@ -55,6 +55,20 @@ object EnglishStrings : AppStrings {
     override val captureTab: String = "Capture"
     override val settingsTab: String = "Settings"
 
+    // Home Screen
+    override val helloPrefix: String = "Hello"
+    override val adminRole: String = "Admin"
+    override val employeeRole: String = "Employee"
+    override val todayStatusHeader: String = "TODAY'S STATUS"
+    override val checkedInStatus: String = "Checked In ✓"
+    override val checkedOutStatus: String = "Checked Out"
+    override val notCheckedInStatus: String = "Not Checked In"
+    override val notCheckedInDesc: String = "You haven't marked attendance today yet."
+    override val quickActionsHeader: String = "Quick Actions"
+    override val todayLogTitle: String = "Today's Log"
+    override val todayLogSubtitle: String = "View in/out timestamps"
+    override val faceBiometricSubtitle: String = "Register / update scan"
+
     // Merchant Code & Login Screen
     override val merchantCodeLabel: String = "Merchant Code"
     override val merchantCodePlaceholder: String = "Enter 5-digit code (e.g. LH022)"

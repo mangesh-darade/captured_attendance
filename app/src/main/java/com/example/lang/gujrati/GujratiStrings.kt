@@ -55,6 +55,20 @@ object GujratiStrings : AppStrings {
     override val captureTab: String = "હાજરી"
     override val settingsTab: String = "સેટિંગ્સ"
 
+    // Home Screen
+    override val helloPrefix: String = "નમસ્તે"
+    override val adminRole: String = "એડમિન"
+    override val employeeRole: String = "કર્મચારી"
+    override val todayStatusHeader: String = "આજની સ્થિતિ"
+    override val checkedInStatus: String = "ચેક ઇન થઈ ગયું ✓"
+    override val checkedOutStatus: String = "ચેક આઉટ થઈ ગયું"
+    override val notCheckedInStatus: String = "હાજરી નોંધાઈ નથી"
+    override val notCheckedInDesc: String = "તમે આજે હજી સુધી હાજરી નોંધાવી નથી."
+    override val quickActionsHeader: String = "ઝડપી ક્રિયાઓ"
+    override val todayLogTitle: String = "આજનો હાજરી લોગ"
+    override val todayLogSubtitle: String = "હાજરીના સમય અને વિગતો જુઓ"
+    override val faceBiometricSubtitle: String = "ચહેરો સ્કેન નોંધો અથવા અપડેટ કરો"
+
     // Merchant Code & Login Screen
     override val merchantCodeLabel: String = "મર્ચન્ટ કોડ (Merchant Code)"
     override val merchantCodePlaceholder: String = "૫ અંકનો કોડ દાખલ કરો (દા.ત. LH022)"

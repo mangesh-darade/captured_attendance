@@ -66,6 +66,20 @@ interface AppStrings {
     val captureTab: String
     val settingsTab: String
 
+    // Home Screen
+    val helloPrefix: String
+    val adminRole: String
+    val employeeRole: String
+    val todayStatusHeader: String
+    val checkedInStatus: String
+    val checkedOutStatus: String
+    val notCheckedInStatus: String
+    val notCheckedInDesc: String
+    val quickActionsHeader: String
+    val todayLogTitle: String
+    val todayLogSubtitle: String
+    val faceBiometricSubtitle: String
+
     // Merchant Code & Login Screen
     val merchantCodeLabel: String
     val merchantCodePlaceholder: String
