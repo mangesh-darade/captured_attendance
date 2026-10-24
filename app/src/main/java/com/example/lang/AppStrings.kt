@@ -120,6 +120,11 @@ interface AppStrings {
     val noRecordsToday: String
     val totalPresent: String
     val totalPunches: String
+    val filterAll: String
+    val filterToday: String
+    val filterIn: String
+    val filterOut: String
+    val totalEntries: String
 
     // Face Enrollment
     val faceEnrollmentTitle: String

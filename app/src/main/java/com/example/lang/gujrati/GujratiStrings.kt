@@ -68,8 +68,8 @@ object GujratiStrings : AppStrings {
     override val notCheckedInStatus: String = "હાજરી નોંધાઈ નથી"
     override val notCheckedInDesc: String = "તમે આજે હજી સુધી હાજરી નોંધાવી નથી."
     override val quickActionsHeader: String = "ઝડપી ક્રિયાઓ"
-    override val todayLogTitle: String = "આજનો હાજરી લોગ"
-    override val todayLogSubtitle: String = "હાજરીના સમય અને વિગતો જુઓ"
+    override val todayLogTitle: String = "હાજરી લોગ"
+    override val todayLogSubtitle: String = "૧ મહિનાનો ઇન/આઉટ રેકોર્ડ"
     override val faceBiometricSubtitle: String = "ચહેરો સ્કેન નોંધો અથવા અપડેટ કરો"
 
     // Merchant Code & Login Screen
@@ -103,12 +103,17 @@ object GujratiStrings : AppStrings {
     override val signedInText: String = "લૉગિન થયેલ ખાતું"
 
     // Today Attendance Dialog
-    override val todayAttendanceTitle: String = "આજની હાજરી (Today's Attendance)"
-    override val todayAttendanceSubtitle: String = "આજના કર્મચારીઓની હાજરી અને પંચ વિગતો"
-    override val searchEmployeePlaceholder: String = "કર્મચારી નામ અથવા આઈડીથી શોધો..."
-    override val noRecordsToday: String = "આજ માટે કોઈ હાજરી રેકોર્ડ મળ્યો નથી."
-    override val totalPresent: String = "હાજર"
+    override val todayAttendanceTitle: String = "હાજરી ઇતિહાસ (Attendance Log)"
+    override val todayAttendanceSubtitle: String = "૧ મહિનાના ચેક-ઇન અને ચેક-આઉટ રેકોર્ડ અને ફિલ્ટર"
+    override val searchEmployeePlaceholder: String = "નામ, ફોન અથવા સ્થળથી શોધો..."
+    override val noRecordsToday: String = "કોઈ હાજરી રેકોર્ડ મળ્યો નથી."
+    override val totalPresent: String = "આજે હાજર"
     override val totalPunches: String = "કુલ પંચ"
+    override val filterAll: String = "બધા (૧ મહિનો)"
+    override val filterToday: String = "આજે"
+    override val filterIn: String = "માત્ર Check-In"
+    override val filterOut: String = "Check-Out થયેલ"
+    override val totalEntries: String = "કુલ રેકોર્ડ"
 
     // Face Enrollment
     override val faceEnrollmentTitle: String = "ચહેરો નોંધણી (Face Registration)"

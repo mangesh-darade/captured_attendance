@@ -197,6 +197,7 @@ data class AttendanceRecordItem(
     @Json(name = "user_id") val userId: Int = 0,
     @Json(name = "user_name") val userName: String = "",
     val phone: String? = null,
+    val date: String? = null,
     @Json(name = "in_time") val inTime: String = "--:--",
     @Json(name = "out_time") val outTime: String? = null,
     @Json(name = "is_in") val isIn: Boolean = true,

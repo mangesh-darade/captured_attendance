@@ -332,7 +332,11 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.update { it.copy(showTodayAttendance = false) }
     }
 
-    fun fetchTodayAttendance() {
+    fun fetchTodayAttendance(
+        month: String? = null,
+        startDate: String? = null,
+        endDate: String? = null
+    ) {
         viewModelScope.launch {
             val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
             val token = _uiState.value.deviceToken
@@ -345,7 +349,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             try {
                 val response = networkClientManager.attendanceService.getTodayAttendance(
                     url = "${base}attendance_api/today_summary",
-                    token = token
+                    token = token,
+                    month = month,
+                    startDate = startDate,
+                    endDate = endDate
                 )
                 val body = response.body()
                 if (response.isSuccessful && body?.status.equals("success", ignoreCase = true)) {

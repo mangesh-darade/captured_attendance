@@ -68,8 +68,8 @@ object HindiStrings : AppStrings {
     override val notCheckedInStatus: String = "उपस्थिति दर्ज नहीं"
     override val notCheckedInDesc: String = "आपने आज अभी तक उपस्थिति दर्ज नहीं की है।"
     override val quickActionsHeader: String = "त्वरित विकल्प"
-    override val todayLogTitle: String = "आज का उपस्थिति लॉग"
-    override val todayLogSubtitle: String = "उपस्थिति के समय और विवरण देखें"
+    override val todayLogTitle: String = "उपस्थिति लॉग"
+    override val todayLogSubtitle: String = "1 महीने का इन/आउट रिकॉर्ड"
     override val faceBiometricSubtitle: String = "चेहरा स्कैन पंजीकृत या अपडेट करें"
 
     // Merchant Code & Login Screen
@@ -103,12 +103,17 @@ object HindiStrings : AppStrings {
     override val signedInText: String = "लॉगिन खाता"
 
     // Today Attendance Dialog
-    override val todayAttendanceTitle: String = "आज की उपस्थिति (Today's Attendance)"
-    override val todayAttendanceSubtitle: String = "आज के कर्मचारियों की उपस्थिति और पंच विवरण"
-    override val searchEmployeePlaceholder: String = "कर्मचारी नाम या आईडी से खोजें..."
-    override val noRecordsToday: String = "आज के लिए कोई उपस्थिति रिकॉर्ड नहीं मिला।"
-    override val totalPresent: String = "उपस्थित"
+    override val todayAttendanceTitle: String = "उपस्थिति इतिहास (Attendance Log)"
+    override val todayAttendanceSubtitle: String = "1 महीने के चेक-इन और चेक-आउट रिकॉर्ड और फ़िल्टर"
+    override val searchEmployeePlaceholder: String = "नाम, फ़ोन या स्थान से खोजें..."
+    override val noRecordsToday: String = "कोई उपस्थिति रिकॉर्ड नहीं मिला।"
+    override val totalPresent: String = "आज उपस्थित"
     override val totalPunches: String = "कुल पंच"
+    override val filterAll: String = "सभी (1 महीना)"
+    override val filterToday: String = "आज"
+    override val filterIn: String = "केवल Check-In"
+    override val filterOut: String = "Check-Out हुए"
+    override val totalEntries: String = "कुल रिकॉर्ड"
 
     // Face Enrollment
     override val faceEnrollmentTitle: String = "चेहरा पंजीकरण (Face Registration)"

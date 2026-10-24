@@ -68,8 +68,8 @@ object EnglishStrings : AppStrings {
     override val notCheckedInStatus: String = "Not Checked In"
     override val notCheckedInDesc: String = "You haven't marked attendance today yet."
     override val quickActionsHeader: String = "Quick Actions"
-    override val todayLogTitle: String = "Today's Log"
-    override val todayLogSubtitle: String = "View in/out timestamps"
+    override val todayLogTitle: String = "Attendance Log"
+    override val todayLogSubtitle: String = "1 month in/out log & filters"
     override val faceBiometricSubtitle: String = "Register / update scan"
 
     // Merchant Code & Login Screen
@@ -103,12 +103,17 @@ object EnglishStrings : AppStrings {
     override val signedInText: String = "Signed in as"
 
     // Today Attendance Dialog
-    override val todayAttendanceTitle: String = "Today's Attendance"
-    override val todayAttendanceSubtitle: String = "Overview of punches and employee check-ins for today"
-    override val searchEmployeePlaceholder: String = "Search employee by name or ID..."
-    override val noRecordsToday: String = "No attendance records found for today."
-    override val totalPresent: String = "Present"
+    override val todayAttendanceTitle: String = "Attendance History"
+    override val todayAttendanceSubtitle: String = "1 month check-in and check-out entries with filters"
+    override val searchEmployeePlaceholder: String = "Search by name, phone or location..."
+    override val noRecordsToday: String = "No attendance records found."
+    override val totalPresent: String = "Present Today"
     override val totalPunches: String = "Total Punches"
+    override val filterAll: String = "All (1 Month)"
+    override val filterToday: String = "Today"
+    override val filterIn: String = "In Only"
+    override val filterOut: String = "Out Only"
+    override val totalEntries: String = "Total Entries"
 
     // Face Enrollment
     override val faceEnrollmentTitle: String = "Face Registration"

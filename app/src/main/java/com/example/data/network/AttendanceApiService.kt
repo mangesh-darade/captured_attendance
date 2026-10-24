@@ -40,7 +40,10 @@ interface AttendanceApiService {
     @GET
     suspend fun getTodayAttendance(
         @Url url: String,
-        @Query("token") token: String
+        @Query("token") token: String,
+        @Query("month") month: String? = null,
+        @Query("start_date") startDate: String? = null,
+        @Query("end_date") endDate: String? = null
     ): Response<com.example.data.model.TodayAttendanceResponse>
 
     @GET
