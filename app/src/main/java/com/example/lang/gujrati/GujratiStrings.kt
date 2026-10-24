@@ -47,6 +47,9 @@ object GujratiStrings : AppStrings {
     override val multipleLocationsHint: String = "નજીકના અનેક સ્થળો મળ્યા. કૃપા કરીને એક પસંદ કરો."
     override val standingLandmark: String = "નજીક ઊભા છો"
     override val fetchingLocation: String = "GPS લોકેશન શોધી રહ્યાં છીએ..."
+    override val refreshLocation: String = "GPS રિફ્રેશ કરો"
+    override val locationAccuracyCoarse: String = "ઓછી ચોકસાઈ, રિફ્રેશ કરો"
+    override val locationUpdated: String = "સ્થાન અપડેટ થયું"
     override val lastActivityPrefix: String = "છેલ્લી પ્રવૃત્તિ"
     override val poweredBy: String = "Powered by"
 

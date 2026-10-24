@@ -83,6 +83,7 @@ data class AttendanceUiState(
     val currentLat: Double? = null,
     val currentLng: Double? = null,
     val currentLandmark: String = "",
+    val currentAccuracy: Float? = null,
     val isLocationLoading: Boolean = true,
     val isPosting: Boolean = false,
     val showSettingsDialog: Boolean = false,
@@ -902,9 +903,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun triggerLocationAndDerive() {
+    fun triggerLocationAndDerive(forceFresh: Boolean = false) {
         viewModelScope.launch {
-            val standing = refreshStandingLocation()
+            val standing = refreshStandingLocation(forceFresh = forceFresh)
             if (standing == null) {
                 showToast(
                     ToastType.ERROR,
@@ -912,6 +913,16 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     5500L
                 )
                 return@launch
+            }
+            if (forceFresh) {
+                val acc = _uiState.value.currentAccuracy?.toInt()
+                val accMsg = if (acc != null) " (±${acc}m)" else ""
+                val s = com.example.lang.LangManager.getStrings(_uiState.value.appLanguage)
+                showToast(
+                    ToastType.SUCCESS,
+                    "${s.locationUpdated}$accMsg: ${standing.landmark.take(35)}",
+                    3500L
+                )
             }
             scheduleDerivePreview(includeDescriptor = false, debounceMs = 350L)
         }
@@ -924,9 +935,13 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     )
 
     /** Fresh GPS plus the street landmark for where the device is actually standing. */
-    private suspend fun refreshStandingLocation(): StandingFix? {
+    private suspend fun refreshStandingLocation(forceFresh: Boolean = false): StandingFix? {
         _uiState.update { it.copy(isLocationLoading = true) }
         try {
+            if (forceFresh) {
+                locationHelper.clearCache()
+                lastAccurateFixAt = 0L
+            }
             val loc = locationHelper.getLocation().getOrNull() ?: return null
             val landmark = locationHelper.reverseGeocode(loc.latitude, loc.longitude)
             if (landmark.isNotBlank()) {
@@ -936,7 +951,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 it.copy(
                     currentLat = loc.latitude,
                     currentLng = loc.longitude,
-                    currentLandmark = landmark
+                    currentLandmark = landmark,
+                    currentAccuracy = if (loc.hasAccuracy()) loc.accuracy else null
                 )
             }
             return StandingFix(loc.latitude, loc.longitude, landmark)

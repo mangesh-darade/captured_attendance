@@ -47,6 +47,9 @@ object MarathiStrings : AppStrings {
     override val multipleLocationsHint: String = "एकापेक्षा जास्त जवळची ठिकाणे आढळली. कृपया एक निवडा."
     override val standingLandmark: String = "येथे उभे आहात"
     override val fetchingLocation: String = "GPS लोकेशन शोधत आहे..."
+    override val refreshLocation: String = "GPS रिफ्रेश करा"
+    override val locationAccuracyCoarse: String = "कमी अचूकता, रिफ्रेश करा"
+    override val locationUpdated: String = "लोकेशन अपडेट झाले"
     override val lastActivityPrefix: String = "मागील नोंद"
     override val poweredBy: String = "Powered by"
 

@@ -58,6 +58,9 @@ interface AppStrings {
     val multipleLocationsHint: String
     val standingLandmark: String
     val fetchingLocation: String
+    val refreshLocation: String
+    val locationAccuracyCoarse: String
+    val locationUpdated: String
     val lastActivityPrefix: String
     val poweredBy: String
 

@@ -34,8 +34,8 @@ import kotlin.coroutines.resumeWithException
 /** Stop waiting once GPS is this tight. */
 private const val TARGET_ACCURACY_METERS = 20f
 
-/** Allow up to 120m for indoor kiosks/receptions where satellite GPS is partially obstructed. */
-private const val MAX_ACCEPTED_ACCURACY_METERS = 120f
+/** Allow up to 75m for indoor kiosks/receptions where satellite GPS is partially obstructed. */
+private const val MAX_ACCEPTED_ACCURACY_METERS = 75f
 
 private const val ACCURATE_FIX_TIMEOUT_MS = 15_000L
 
@@ -258,6 +258,13 @@ class LocationHelper(
     private var lastCachedLng: Double? = null
     private var lastCachedLandmark: String = ""
     private var lastCachedIsFallback: Boolean = false
+
+    fun clearCache() {
+        lastCachedLat = null
+        lastCachedLng = null
+        lastCachedLandmark = ""
+        lastCachedIsFallback = false
+    }
 
     suspend fun reverseGeocode(latitude: Double, longitude: Double): String {
         val cachedLat = lastCachedLat

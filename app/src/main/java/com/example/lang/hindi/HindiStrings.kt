@@ -47,6 +47,9 @@ object HindiStrings : AppStrings {
     override val multipleLocationsHint: String = "पास के कई स्थान मिले। कृपया एक स्थान चुनें।"
     override val standingLandmark: String = "पास में स्थित"
     override val fetchingLocation: String = "GPS लोकेशन प्राप्त कर रहे हैं..."
+    override val refreshLocation: String = "GPS रीफ्रेश करें"
+    override val locationAccuracyCoarse: String = "कम सटीकता, रीफ्रेश करें"
+    override val locationUpdated: String = "स्थान अपडेट हुआ"
     override val lastActivityPrefix: String = "पिछली गतिविधि"
     override val poweredBy: String = "Powered by"
 

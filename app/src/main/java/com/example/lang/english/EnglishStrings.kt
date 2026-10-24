@@ -47,6 +47,9 @@ object EnglishStrings : AppStrings {
     override val multipleLocationsHint: String = "Multiple nearby locations found. Please select one location."
     override val standingLandmark: String = "Standing near"
     override val fetchingLocation: String = "Acquiring GPS location..."
+    override val refreshLocation: String = "Refresh GPS"
+    override val locationAccuracyCoarse: String = "Low accuracy, tap to refresh"
+    override val locationUpdated: String = "Location updated"
     override val lastActivityPrefix: String = "Last Activity"
     override val poweredBy: String = "Powered by"
 

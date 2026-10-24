@@ -575,66 +575,122 @@ fun AttendanceKioskScreen(
                             )
                         }
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth()
+                        val currentAcc = uiState.currentAccuracy
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if ((currentAcc ?: 999f) <= 40f) Color(0xFFF0FDF4) else Color(0xFFF8FAFC),
+                            border = BorderStroke(
+                                1.dp,
+                                if ((currentAcc ?: 999f) > 40f) Color(0xFFFDE68A) else Color(0xFFCCFBF1)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = !uiState.isLocationLoading) {
+                                    viewModel.triggerLocationAndDerive(forceFresh = true)
+                                }
                         ) {
-                            if (uiState.isLocationLoading || uiState.currentLat == null) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(13.dp),
-                                    strokeWidth = 2.dp,
-                                    color = Color(0xFF006D77)
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.Place,
-                                    contentDescription = "Location",
-                                    tint = Color(0xFF006D77),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Text(
-                                    text = s.fetchingLocation,
-                                    style = TextStyle(
-                                        fontFamily = InterFontFamily,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = Color(0xFF006D77)
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 10.dp, vertical = 8.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.weight(1f, fill = false)
+                                ) {
+                                    if (uiState.isLocationLoading || uiState.currentLat == null) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(14.dp),
+                                            strokeWidth = 2.dp,
+                                            color = Color(0xFF006D77)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.Place,
+                                            contentDescription = "Location",
+                                            tint = Color(0xFF006D77),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Text(
+                                            text = s.fetchingLocation,
+                                            style = TextStyle(
+                                                fontFamily = InterFontFamily,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = Color(0xFF006D77)
+                                            )
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Place,
+                                            contentDescription = "Location",
+                                            tint = Color(0xFF006D77),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        val siteName = uiState.selectedLocation?.pureName()?.takeIf { it.isNotBlank() }
+                                        val landmarkText = uiState.currentLandmark.ifBlank {
+                                            if (uiState.currentLat != null) "(${uiState.currentLat}, ${uiState.currentLng})" else ""
+                                        }
+                                        val locationDisplayText = when {
+                                            siteName != null && landmarkText.isNotBlank() -> {
+                                                s.standingLandmark + ": " + siteName + " (" + landmarkText + ")"
+                                            }
+                                            siteName != null -> {
+                                                s.standingLandmark + ": " + siteName
+                                            }
+                                            landmarkText.isNotBlank() -> {
+                                                s.standingLandmark + ": " + landmarkText
+                                            }
+                                            else -> s.standingLandmark
+                                        }
+
+                                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                            Text(
+                                                text = locationDisplayText,
+                                                style = TextStyle(
+                                                    fontFamily = InterFontFamily,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = Color(0xFF006D77)
+                                                ),
+                                                maxLines = 2,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            if (currentAcc != null) {
+                                                val acc = currentAcc.toInt()
+                                                val isCoarse = acc > 40
+                                                val accColor = if (isCoarse) Color(0xFFD97706) else Color(0xFF0D9488)
+                                                val accText = if (isCoarse) {
+                                                    "±${acc}m • ${s.locationAccuracyCoarse}"
+                                                } else {
+                                                    "±${acc}m GPS"
+                                                }
+                                                Text(
+                                                    text = accText,
+                                                    style = TextStyle(
+                                                        fontFamily = InterFontFamily,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = accColor
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (!uiState.isLocationLoading && uiState.currentLat != null) {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = s.refreshLocation,
+                                        tint = Color(0xFF006D77),
+                                        modifier = Modifier
+                                            .size(18.dp)
+                                            .padding(start = 4.dp)
                                     )
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Place,
-                                    contentDescription = "Location",
-                                    tint = Color(0xFF006D77),
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                val siteName = uiState.selectedLocation?.pureName()?.takeIf { it.isNotBlank() }
-                                val landmarkText = uiState.currentLandmark.ifBlank {
-                                    if (uiState.currentLat != null) "(${uiState.currentLat}, ${uiState.currentLng})" else ""
                                 }
-                                val locationDisplayText = when {
-                                    siteName != null && landmarkText.isNotBlank() -> {
-                                        s.standingLandmark + ": " + siteName + " (" + landmarkText + ")"
-                                    }
-                                    siteName != null -> {
-                                        s.standingLandmark + ": " + siteName
-                                    }
-                                    landmarkText.isNotBlank() -> {
-                                        s.standingLandmark + ": " + landmarkText
-                                    }
-                                    else -> s.standingLandmark
-                                }
-                                Text(
-                                    text = locationDisplayText,
-                                    style = TextStyle(
-                                        fontFamily = InterFontFamily,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        color = Color(0xFF006D77)
-                                    ),
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis
-                                )
                             }
                         }
 
