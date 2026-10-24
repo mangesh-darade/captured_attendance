@@ -114,6 +114,11 @@ object EnglishStrings : AppStrings {
     override val filterIn: String = "In Only"
     override val filterOut: String = "Out Only"
     override val totalEntries: String = "Total Entries"
+    override val recordDetailsTitle: String = "Attendance Details"
+    override val notCheckedOutYet: String = "Not checked out yet"
+    override val punchLocation: String = "Punch Location"
+    override val recordIdLabel: String = "Record ID"
+    override val punchDate: String = "Date"
 
     // Face Enrollment
     override val faceEnrollmentTitle: String = "Face Registration"

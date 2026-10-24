@@ -125,6 +125,11 @@ interface AppStrings {
     val filterIn: String
     val filterOut: String
     val totalEntries: String
+    val recordDetailsTitle: String
+    val notCheckedOutYet: String
+    val punchLocation: String
+    val recordIdLabel: String
+    val punchDate: String
 
     // Face Enrollment
     val faceEnrollmentTitle: String

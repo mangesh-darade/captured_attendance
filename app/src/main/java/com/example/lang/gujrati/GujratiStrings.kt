@@ -114,6 +114,11 @@ object GujratiStrings : AppStrings {
     override val filterIn: String = "માત્ર Check-In"
     override val filterOut: String = "Check-Out થયેલ"
     override val totalEntries: String = "કુલ રેકોર્ડ"
+    override val recordDetailsTitle: String = "હાજરી વિગત (Attendance Details)"
+    override val notCheckedOutYet: String = "હજુ ચેક-આઉટ થયું નથી"
+    override val punchLocation: String = "હાજરી સ્થળ"
+    override val recordIdLabel: String = "રેકોર્ડ આઈડી"
+    override val punchDate: String = "તારીખ"
 
     // Face Enrollment
     override val faceEnrollmentTitle: String = "ચહેરો નોંધણી (Face Registration)"

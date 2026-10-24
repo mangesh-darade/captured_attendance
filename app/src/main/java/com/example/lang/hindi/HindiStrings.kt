@@ -114,6 +114,11 @@ object HindiStrings : AppStrings {
     override val filterIn: String = "केवल Check-In"
     override val filterOut: String = "Check-Out हुए"
     override val totalEntries: String = "कुल रिकॉर्ड"
+    override val recordDetailsTitle: String = "उपस्थिति विवरण (Attendance Details)"
+    override val notCheckedOutYet: String = "अभी चेक-आउट नहीं हुआ"
+    override val punchLocation: String = "उपस्थिति स्थान"
+    override val recordIdLabel: String = "रिकॉर्ड आईडी"
+    override val punchDate: String = "दिनांक"
 
     // Face Enrollment
     override val faceEnrollmentTitle: String = "चेहरा पंजीकरण (Face Registration)"

@@ -114,6 +114,11 @@ object MarathiStrings : AppStrings {
     override val filterIn: String = "फक्त Check-In"
     override val filterOut: String = "Check-Out झालेले"
     override val totalEntries: String = "एकूण नोंदी"
+    override val recordDetailsTitle: String = "हजेरी तपशील (Attendance Details)"
+    override val notCheckedOutYet: String = "अजून चेक-आउट झालेले नाही"
+    override val punchLocation: String = "हजेरी ठिकाण"
+    override val recordIdLabel: String = "नोंद क्रमांक"
+    override val punchDate: String = "तारीख"
 
     // Face Enrollment
     override val faceEnrollmentTitle: String = "चेहरा नोंदणी (Face Registration)"

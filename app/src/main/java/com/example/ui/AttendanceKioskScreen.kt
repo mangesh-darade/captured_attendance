@@ -1708,6 +1708,7 @@ private fun AttendanceHistoryScreen(
     val s = LangManager.getStrings(currentLanguage)
     var searchQuery by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf("ALL") }
+    var selectedRecord by remember { mutableStateOf<AttendanceRecordItem?>(null) }
 
     val filteredRecords = remember(records, searchQuery, selectedFilter) {
         val todayDateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
@@ -2045,16 +2046,30 @@ private fun AttendanceHistoryScreen(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     items(filteredRecords) { record ->
-                        AttendanceCompactRecordRow(record)
+                        AttendanceCompactRecordRow(
+                            record = record,
+                            onClick = { selectedRecord = record }
+                        )
                     }
                 }
             }
+        }
+
+        selectedRecord?.let { rec ->
+            AttendanceRecordDetailDialog(
+                record = rec,
+                s = s,
+                onDismiss = { selectedRecord = null }
+            )
         }
     }
 }
 
 @Composable
-private fun AttendanceCompactRecordRow(record: AttendanceRecordItem) {
+private fun AttendanceCompactRecordRow(
+    record: AttendanceRecordItem,
+    onClick: () -> Unit
+) {
     val name = record.userName.ifBlank { "User ${record.userId}" }
     val initial = name.firstOrNull()?.uppercaseChar()?.toString() ?: "E"
     val dateStr = record.date ?: record.createdAt?.take(10) ?: ""
@@ -2070,6 +2085,7 @@ private fun AttendanceCompactRecordRow(record: AttendanceRecordItem) {
         modifier = Modifier
             .fillMaxWidth()
             .height(58.dp)
+            .clickable(onClick = onClick)
     ) {
         Row(
             modifier = Modifier
@@ -2189,6 +2205,395 @@ private fun AttendanceCompactRecordRow(record: AttendanceRecordItem) {
                         color = Color(0xFF006D77),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AttendanceRecordDetailDialog(
+    record: AttendanceRecordItem,
+    s: AppStrings,
+    onDismiss: () -> Unit
+) {
+    val name = record.userName.ifBlank { "User #${record.userId}" }
+    val initial = name.firstOrNull()?.uppercaseChar()?.toString() ?: "E"
+    val dateStr = record.date ?: record.createdAt?.take(10) ?: "--"
+    val isPunchedIn = record.isIn
+    val statusBg = if (isPunchedIn) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)
+    val statusColor = if (isPunchedIn) Color(0xFF166534) else Color(0xFF92400E)
+    val statusText = if (isPunchedIn) "CHECKED IN" else "CHECKED OUT"
+
+    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = Color.White,
+            shadowElevation = 8.dp,
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                // 1. Header: Icon + Title + Close Button
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE0F2FE)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DateRange,
+                                contentDescription = null,
+                                tint = Color(0xFF0284C7),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Text(
+                            text = s.recordDetailsTitle,
+                            fontFamily = InterFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = Color(0xFF0F172A)
+                        )
+                    }
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(30.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = Color(0xFF64748B),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                // 2. Employee Profile Card
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFE0F2FE)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = initial,
+                                fontFamily = InterFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 17.sp,
+                                color = Color(0xFF0369A1)
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = name,
+                                fontFamily = InterFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                color = Color(0xFF0F172A)
+                            )
+                            if (!record.phone.isNullOrBlank()) {
+                                Text(
+                                    text = record.phone,
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(statusBg)
+                                .padding(horizontal = 8.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = statusText,
+                                fontFamily = InterFontFamily,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = statusColor
+                            )
+                        }
+                    }
+                }
+
+                // 3. Timestamps Grid (Check-In & Check-Out)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Check-In Box
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFF0FDF4),
+                        border = BorderStroke(1.dp, Color(0xFFDCFCE7)),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Login,
+                                    contentDescription = null,
+                                    tint = Color(0xFF15803D),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = "Check-In",
+                                    fontFamily = InterFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF15803D)
+                                )
+                            }
+                            Text(
+                                text = if (record.inTime.isNotBlank() && record.inTime != "--:--") record.inTime else "--:--",
+                                fontFamily = InterFontFamily,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 15.sp,
+                                color = Color(0xFF0F172A)
+                            )
+                        }
+                    }
+
+                    // Check-Out Box
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFFFFBEB),
+                        border = BorderStroke(1.dp, Color(0xFFFEF3C7)),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                                    contentDescription = null,
+                                    tint = Color(0xFFB45309),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = "Check-Out",
+                                    fontFamily = InterFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = Color(0xFFB45309)
+                                )
+                            }
+                            Text(
+                                text = if (!record.outTime.isNullOrBlank()) record.outTime else "--:--",
+                                fontFamily = InterFontFamily,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 15.sp,
+                                color = if (!record.outTime.isNullOrBlank()) Color(0xFF0F172A) else Color(0xFF94A3B8)
+                            )
+                        }
+                    }
+                }
+
+                // 4. Meta Details (Date, Location, CreatedAt, ID)
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Date Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DateRange,
+                                    contentDescription = null,
+                                    tint = Color(0xFF64748B),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = s.punchDate,
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+                            Text(
+                                text = dateStr,
+                                fontFamily = InterFontFamily,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 12.sp,
+                                color = Color(0xFF0F172A)
+                            )
+                        }
+
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF1F5F9)))
+
+                        // Location Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Place,
+                                    contentDescription = null,
+                                    tint = Color(0xFF006D77),
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Text(
+                                    text = s.punchLocation,
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                            }
+                            Text(
+                                text = record.location.ifBlank { "Main Site" },
+                                fontFamily = InterFontFamily,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 12.sp,
+                                color = Color(0xFF006D77)
+                            )
+                        }
+
+                        if (!record.createdAt.isNullOrBlank()) {
+                            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF1F5F9)))
+
+                            // Created At Row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Schedule,
+                                        contentDescription = null,
+                                        tint = Color(0xFF64748B),
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Text(
+                                        text = "Timestamp",
+                                        fontFamily = InterFontFamily,
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF64748B)
+                                    )
+                                }
+                                Text(
+                                    text = record.createdAt,
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF475569)
+                                )
+                            }
+                        }
+
+                        if (record.id > 0) {
+                            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF1F5F9)))
+
+                            // Record ID Row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = s.recordIdLabel,
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                                Text(
+                                    text = "#${record.id}",
+                                    fontFamily = InterFontFamily,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    color = Color(0xFF94A3B8)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 5. Close Button
+                Button(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                ) {
+                    Text(
+                        text = s.closeButton,
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = Color.White
                     )
                 }
             }
