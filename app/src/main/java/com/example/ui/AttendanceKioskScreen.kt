@@ -77,6 +77,12 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Face
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import com.example.data.model.AttendanceRecordItem
@@ -1167,7 +1173,6 @@ private fun HeaderBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(60.dp)
             .background(
                 Brush.horizontalGradient(
                     colors = listOf(
@@ -1193,7 +1198,7 @@ private fun HeaderBar(
     ) {
         // Decorative soft teal curves in top-right, kept inside the bar
         Canvas(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.matchParentSize()
         ) {
             val w = size.width
             val h = size.height
@@ -1216,8 +1221,9 @@ private fun HeaderBar(
 
         Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 14.dp, vertical = 6.dp),
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.Start,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1655,13 +1661,13 @@ private fun TodayAttendanceDialog(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFE0F2FE)),
+                            .background(Color(0xFFE0F7FA)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.FormatListBulleted,
                             contentDescription = null,
-                            tint = Color(0xFF0284C7),
+                            tint = Color(0xFF006D77),
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -1689,7 +1695,7 @@ private fun TodayAttendanceDialog(
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Refresh",
-                        tint = if (isLoading) TextMuted else BrandPrimary,
+                        tint = if (isLoading) TextMuted else Color(0xFF006D77),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -2042,13 +2048,13 @@ private fun EnrollmentUserListDialog(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFDCFCE7)),
+                            .background(Color(0xFFE0F7FA)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.PhotoCamera,
                             contentDescription = null,
-                            tint = Color(0xFF15803D),
+                            tint = Color(0xFF006D77),
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -2076,7 +2082,7 @@ private fun EnrollmentUserListDialog(
                     Icon(
                         imageVector = Icons.Default.Refresh,
                         contentDescription = "Refresh",
-                        tint = if (isLoading) TextMuted else BrandPrimary,
+                        tint = if (isLoading) TextMuted else Color(0xFF006D77),
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -2936,6 +2942,7 @@ private fun StickyBottomBar(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 14.dp, vertical = 12.dp)
         ) {
             val isEnabled = !isPosting && isLocationReady
@@ -3761,141 +3768,188 @@ private fun KioskBottomNavigationBar(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .navigationBarsPadding(),
+        modifier = modifier.fillMaxWidth(),
         color = Color.White,
-        shadowElevation = 12.dp,
-        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
+        shadowElevation = 8.dp,
+        border = BorderStroke(1.dp, Color(0xFFF1F5F9)),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .navigationBarsPadding()
         ) {
-            // 1. Home Tab
-            val isHome = selectedTab == KioskBottomTab.HOME
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .clickable { onTabSelected(KioskBottomTab.HOME) }
-                    .padding(vertical = 4.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
+                // 1. Home Tab
+                val isHome = selectedTab == KioskBottomTab.HOME
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
                     modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(if (isHome) Color(0xFFE0F2FE) else Color.Transparent)
-                        .then(if (isHome) Modifier.border(1.5.dp, Color(0xFF38BDF8), CircleShape) else Modifier),
-                    contentAlignment = Alignment.Center
+                        .weight(1f)
+                        .clickable { onTabSelected(KioskBottomTab.HOME) }
+                        .padding(vertical = 2.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Home,
-                        contentDescription = "Home",
-                        tint = if (isHome) Color(0xFF0284C7) else Color(0xFF64748B),
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = when (currentLanguage) {
-                        "hi" -> "होम"
-                        "gu" -> "હોમ"
-                        else -> "Home"
-                    },
-                    fontFamily = InterFontFamily,
-                    fontSize = 12.sp,
-                    fontWeight = if (isHome) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isHome) Color(0xFF0284C7) else Color(0xFF64748B)
-                )
-            }
-
-            // 2. Capture Attendance Tab (Center round prominent action button)
-            val isCapture = selectedTab == KioskBottomTab.CAPTURE
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .weight(1.2f)
-                    .clickable { onTabSelected(KioskBottomTab.CAPTURE) }
-                    .padding(vertical = 2.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(52.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(Color(0xFF006D77), Color(0xFF0A9396))
-                            )
+                    Box(
+                        modifier = Modifier
+                            .width(54.dp)
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(17.dp))
+                            .background(if (isHome) Color(0xFFD7F5F5) else Color.Transparent),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = "Home",
+                            tint = if (isHome) Color(0xFF006D77) else Color(0xFF64748B),
+                            modifier = Modifier.size(22.dp)
                         )
-                        .border(2.5.dp, if (isCapture) Color(0xFF83C5BE) else Color.White, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PhotoCamera,
-                        contentDescription = "Capture Attendance",
-                        tint = Color.White,
-                        modifier = Modifier.size(26.dp)
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = when (currentLanguage) {
+                            "hi" -> "होम"
+                            "gu" -> "હોમ"
+                            else -> "Home"
+                        },
+                        fontFamily = InterFontFamily,
+                        fontSize = 11.sp,
+                        fontWeight = if (isHome) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isHome) Color(0xFF006D77) else Color(0xFF64748B)
                     )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    if (isHome) {
+                        Box(
+                            modifier = Modifier
+                                .size(5.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF006D77))
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.size(5.dp))
+                    }
                 }
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = when (currentLanguage) {
-                        "mr" -> "अटेंडन्स"
-                        "hi" -> "अटेंडेंस"
-                        "gu" -> "હાજરી"
-                        else -> "Capture"
-                    },
-                    fontFamily = InterFontFamily,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isCapture) Color(0xFF006D77) else Color(0xFF0F766E)
-                )
-            }
 
-            // 3. Settings Tab
-            val isSettings = selectedTab == KioskBottomTab.SETTINGS
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable { onTabSelected(KioskBottomTab.SETTINGS) }
-                    .padding(vertical = 4.dp)
-            ) {
+                // Vertical Divider 1
                 Box(
                     modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(if (isSettings) Color(0xFFE0F2FE) else Color.Transparent)
-                        .then(if (isSettings) Modifier.border(1.5.dp, Color(0xFF38BDF8), CircleShape) else Modifier),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Settings,
-                        contentDescription = "Settings",
-                        tint = if (isSettings) Color(0xFF0284C7) else Color(0xFF64748B),
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = when (currentLanguage) {
-                        "hi" -> "सेटिंग्स"
-                        "gu" -> "સેટિંગ્સ"
-                        else -> "Settings"
-                    },
-                    fontFamily = InterFontFamily,
-                    fontSize = 12.sp,
-                    fontWeight = if (isSettings) FontWeight.Bold else FontWeight.Medium,
-                    color = if (isSettings) Color(0xFF0284C7) else Color(0xFF64748B)
+                        .width(1.dp)
+                        .height(30.dp)
+                        .background(Color(0xFFF1F5F9))
                 )
+
+                // 2. Capture Attendance Tab (Center round prominent button)
+                val isCapture = selectedTab == KioskBottomTab.CAPTURE
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onTabSelected(KioskBottomTab.CAPTURE) }
+                        .padding(vertical = 2.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(54.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFD8F3F5))
+                            .padding(4.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                                .background(Color(0xFF006D77)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoCamera,
+                                contentDescription = "Capture Attendance",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = when (currentLanguage) {
+                            "mr" -> "अटेंडन्स"
+                            "hi" -> "अटेंडेंस"
+                            "gu" -> "હાजरी"
+                            else -> "Capture"
+                        },
+                        fontFamily = InterFontFamily,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF64748B)
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Spacer(modifier = Modifier.size(5.dp))
+                }
+
+                // Vertical Divider 2
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(30.dp)
+                        .background(Color(0xFFF1F5F9))
+                )
+
+                // 3. Settings Tab
+                val isSettings = selectedTab == KioskBottomTab.SETTINGS
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onTabSelected(KioskBottomTab.SETTINGS) }
+                        .padding(vertical = 2.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .width(54.dp)
+                            .height(34.dp)
+                            .clip(RoundedCornerShape(17.dp))
+                            .background(if (isSettings) Color(0xFFD7F5F5) else Color.Transparent),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = if (isSettings) Color(0xFF006D77) else Color(0xFF64748B),
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = when (currentLanguage) {
+                            "hi" -> "सेटिंग्स"
+                            "gu" -> "સેટિંગ્સ"
+                            else -> "Settings"
+                        },
+                        fontFamily = InterFontFamily,
+                        fontSize = 11.sp,
+                        fontWeight = if (isSettings) FontWeight.Bold else FontWeight.Medium,
+                        color = if (isSettings) Color(0xFF006D77) else Color(0xFF64748B)
+                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    if (isSettings) {
+                        Box(
+                            modifier = Modifier
+                                .size(5.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF006D77))
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.size(5.dp))
+                    }
+                }
             }
         }
     }
@@ -3911,63 +3965,89 @@ private fun KioskHomeScreen(
     onOpenSettings: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val isCheckedIn = uiState.lastActivityText.contains("check-in", ignoreCase = true) ||
+        uiState.lastActivityText.contains(" in", ignoreCase = true)
+    val hasActivity = uiState.lastActivityText.isNotBlank() && uiState.lastActivityText != "--"
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color(0xFFF8FAFC))
             .verticalScroll(scrollState)
-            .padding(horizontal = 14.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. Hero User Greeting Card
+        // ── 1. Hero Greeting Card (White Card with Avatar & Admin Badge) ──
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(20.dp),
             color = Color.White,
-            border = BorderStroke(1.dp, CardBorder),
-            shadowElevation = 2.dp,
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            shadowElevation = 1.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+                // Circle Avatar: deep teal circle #006D77
+                Box(
+                    modifier = Modifier
+                        .size(54.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF006D77)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    ProfileAvatar(
-                        name = uiState.loggedInUserName,
-                        size = 50.dp
+                    Text(
+                        text = uiState.loggedInUserName.firstOrNull()?.uppercaseChar()?.toString() ?: "S",
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                        color = Color.White
                     )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "Hello, ${uiState.loggedInUserName.ifBlank { "User" }}",
-                            fontFamily = InterFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp,
-                            color = Color(0xFF0F172A),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Hello, ${uiState.loggedInUserName.ifBlank { "Satol Admin" }}",
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 17.sp,
+                        color = Color(0xFF0F172A),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (uiState.isAdmin) Color(0xFFE0F2FE) else Color(0xFFE0F7FA)
+                    ) {
                         Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            Surface(
-                                shape = RoundedCornerShape(6.dp),
-                                color = if (uiState.isAdmin) Color(0xFFE0F2FE) else Color(0xFFF1F5F9)
-                            ) {
+                            if (uiState.isAdmin) {
                                 Text(
-                                    text = if (uiState.isAdmin) "Admin" else "Employee",
+                                    text = "👑",
+                                    fontSize = 10.sp
+                                )
+                                Text(
+                                    text = "Admin",
                                     fontFamily = InterFontFamily,
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = if (uiState.isAdmin) Color(0xFF0369A1) else Color(0xFF475569),
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    color = Color(0xFF0284C7)
+                                )
+                            } else {
+                                Text(
+                                    text = "Employee",
+                                    fontFamily = InterFontFamily,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF006D77)
                                 )
                             }
                         }
@@ -3976,66 +4056,108 @@ private fun KioskHomeScreen(
             }
         }
 
-        // 2. Today's Attendance Status Banner
-        val isCheckedIn = uiState.lastActivityText.contains("check-in", ignoreCase = true) || uiState.lastActivityText.contains("in", ignoreCase = true)
-        val hasActivity = uiState.lastActivityText.isNotBlank() && uiState.lastActivityText != "--"
-
+        // ── 2. Today's Status Card (Peach/Amber gradient with calendar clock graphic) ──
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = if (isCheckedIn) Color(0xFFF0FDF4) else if (hasActivity) Color(0xFFF0F9FF) else Color(0xFFFFFBEB),
-            border = BorderStroke(
-                1.dp,
-                if (isCheckedIn) Color(0xFFBBF7D0) else if (hasActivity) Color(0xFFBAE6FD) else Color(0xFFFDE68A)
-            ),
+            shape = RoundedCornerShape(20.dp),
+            color = Color(0xFFFFF9EE),
+            border = BorderStroke(1.dp, Color(0xFFFFE7C4)),
+            shadowElevation = 1.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+            Box(modifier = Modifier.fillMaxWidth()) {
+                // Decorative calendar watermark + orange clock badge on right side
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 16.dp)
+                        .size(80.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = "TODAY'S STATUS",
-                        fontFamily = InterFontFamily,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF64748B),
-                        letterSpacing = 0.5.sp
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0x1EF97316))
+                            .border(2.dp, Color(0x3DF97316), RoundedCornerShape(12.dp))
                     )
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (isCheckedIn) Color(0xFF15803D) else if (hasActivity) Color(0xFF0284C7) else Color(0xFFD97706)
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFF97316)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = if (isCheckedIn) "✓ CHECKED IN" else if (hasActivity) "CHECKED OUT" else "NOT CHECKED IN",
-                            fontFamily = InterFontFamily,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        Icon(
+                            imageVector = Icons.Default.Schedule,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
 
-                Text(
-                    text = if (hasActivity) {
-                        localizeActivityText(uiState.lastActivityText, currentLanguage)
-                    } else {
-                        "You haven't marked attendance today yet."
-                    },
-                    fontFamily = InterFontFamily,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF0F172A)
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFF97316)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Schedule,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Text(
+                            text = "TODAY'S STATUS",
+                            fontFamily = InterFontFamily,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF9A3412),
+                            letterSpacing = 0.5.sp
+                        )
+                    }
 
-                if (uiState.currentLandmark.isNotBlank() || uiState.selectedLocation != null) {
+                    Text(
+                        text = when {
+                            isCheckedIn -> "Checked In ✓"
+                            hasActivity -> "Checked Out"
+                            else        -> "Not Checked In"
+                        },
+                        fontFamily = InterFontFamily,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 18.sp,
+                        color = if (isCheckedIn) Color(0xFF15803D) else Color(0xFFC2410C)
+                    )
+
+                    Text(
+                        text = if (hasActivity)
+                            localizeActivityText(uiState.lastActivityText, currentLanguage)
+                        else
+                            "You haven't marked attendance today yet.",
+                        fontFamily = InterFontFamily,
+                        fontSize = 12.sp,
+                        color = Color(0xFF64748B),
+                        modifier = Modifier.fillMaxWidth(0.68f)
+                    )
+
+                    Spacer(modifier = Modifier.height(2.dp))
+
+                    val siteOrLandmark = uiState.selectedLocation?.pureName()
+                        ?: uiState.currentLandmark.ifBlank { uiState.tenantSiteName ?: "BhusariColony" }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -4043,14 +4165,15 @@ private fun KioskHomeScreen(
                         Icon(
                             imageVector = Icons.Default.Place,
                             contentDescription = null,
-                            tint = Color(0xFF0F766E),
+                            tint = Color(0xFF006D77),
                             modifier = Modifier.size(15.dp)
                         )
                         Text(
-                            text = uiState.selectedLocation?.pureName() ?: uiState.currentLandmark,
+                            text = siteOrLandmark,
                             fontFamily = InterFontFamily,
+                            fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,
-                            color = Color(0xFF0F766E),
+                            color = Color(0xFF006D77),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -4059,102 +4182,162 @@ private fun KioskHomeScreen(
             }
         }
 
-        // 3. Quick Services Grid (2 Columns)
+        // ── 3. Quick Actions Section (Check In Now removed as requested) ──
         Text(
             text = "Quick Actions",
             fontFamily = InterFontFamily,
-            fontSize = 13.sp,
+            fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF475569)
+            color = Color(0xFF0F172A)
         )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Card 1: Today's History
+            // Card 1: Today's Log
             Surface(
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(20.dp),
                 color = Color.White,
-                border = BorderStroke(1.dp, CardBorder),
+                border = BorderStroke(1.dp, Color(0xFFE8EEF4)),
+                shadowElevation = 1.dp,
                 modifier = Modifier
                     .weight(1f)
                     .clickable { onOpenHistory() }
             ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.White, Color.White, Color(0xFFF0F9FF))
+                            )
+                        )
+                        .padding(14.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFE0F2FE)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Schedule,
-                            contentDescription = null,
-                            tint = Color(0xFF0369A1),
-                            modifier = Modifier.size(20.dp)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFE0F2FE)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Schedule,
+                                    contentDescription = null,
+                                    tint = Color(0xFF0284C7),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFF1F5F9)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = Color(0xFF64748B),
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "Today's Log",
+                            fontFamily = InterFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(
+                            text = "View in/out timestamps",
+                            fontFamily = InterFontFamily,
+                            fontSize = 11.sp,
+                            color = Color(0xFF64748B)
                         )
                     }
-                    Text(
-                        text = "Today's Log",
-                        fontFamily = InterFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = TextPrimary
-                    )
-                    Text(
-                        text = "View in/out timestamps",
-                        fontFamily = InterFontFamily,
-                        fontSize = 11.sp,
-                        color = TextMuted
-                    )
                 }
             }
 
-            // Card 2: Face Biometric Registration
+            // Card 2: Face Biometric
             Surface(
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(20.dp),
                 color = Color.White,
-                border = BorderStroke(1.dp, CardBorder),
+                border = BorderStroke(1.dp, Color(0xFFE8EEF4)),
+                shadowElevation = 1.dp,
                 modifier = Modifier
                     .weight(1f)
                     .clickable { onOpenFaceEnrollment() }
             ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Color.White, Color.White, Color(0xFFF0FDF4))
+                            )
+                        )
+                        .padding(14.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFDCFCE7)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = Color(0xFF15803D),
-                            modifier = Modifier.size(20.dp)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFDCFCE7)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = Color(0xFF16A34A),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFF1F5F9)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = Color(0xFF64748B),
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            text = "Face Biometric",
+                            fontFamily = InterFontFamily,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(
+                            text = "Register / update scan",
+                            fontFamily = InterFontFamily,
+                            fontSize = 11.sp,
+                            color = Color(0xFF64748B)
                         )
                     }
-                    Text(
-                        text = "Face Biometric",
-                        fontFamily = InterFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp,
-                        color = TextPrimary
-                    )
-                    Text(
-                        text = "Register / update scan",
-                        fontFamily = InterFontFamily,
-                        fontSize = 11.sp,
-                        color = TextMuted
-                    )
                 }
             }
         }
@@ -4173,22 +4356,43 @@ private fun KioskSettingsScreen(
     onLogoutClick: () -> Unit
 ) {
     val scrollState = rememberScrollState()
-    val s = LangManager.getStrings(currentLanguage)
+    var isLanguageExpanded by remember { mutableStateOf(true) }
+    var isDiagnosticsExpanded by remember { mutableStateOf(true) }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color(0xFFF8FAFC))
             .verticalScroll(scrollState)
-            .padding(horizontal = 14.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. Account Info Card
+        // ── 1. Screen Title & Subtitle ──────────────────────────────
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = "Settings",
+                fontFamily = InterFontFamily,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A)
+            )
+            Text(
+                text = "Configure app preferences and system settings",
+                fontFamily = InterFontFamily,
+                fontSize = 13.sp,
+                color = Color(0xFF64748B)
+            )
+        }
+
+        // ── 2. Face Biometric Enrollment Card ───────────────────────
         Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = Color.White,
-            border = BorderStroke(1.dp, CardBorder),
+            shape = RoundedCornerShape(18.dp),
+            color = Color(0xFFF2FBF7),
+            border = BorderStroke(1.dp, Color(0xFFDCFCE7)),
             shadowElevation = 1.dp,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onFaceEnrollmentClick() }
         ) {
             Row(
                 modifier = Modifier
@@ -4197,53 +4401,10 @@ private fun KioskSettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                ProfileAvatar(name = uiState.loggedInUserName, size = 48.dp)
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = uiState.loggedInUserName.ifBlank { "User" },
-                        fontFamily = InterFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = TextPrimary
-                    )
-                    Text(
-                        text = if (uiState.isAdmin) "Administrator account" else "Employee account",
-                        fontFamily = InterFontFamily,
-                        fontSize = 12.sp,
-                        color = TextMuted
-                    )
-                    if (uiState.tenantSiteName != null) {
-                        Text(
-                            text = "Site: ${uiState.tenantSiteName}",
-                            fontFamily = InterFontFamily,
-                            fontSize = 11.sp,
-                            color = BrandPrimary
-                        )
-                    }
-                }
-            }
-        }
-
-        // 2. Face Enrollment Tile
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = Color(0xFFF0FDF4),
-            border = BorderStroke(1.dp, Color(0xFFBBF7D0)),
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { onFaceEnrollmentClick() }
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
+                        .size(44.dp)
+                        .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFFDCFCE7)),
                     contentAlignment = Alignment.Center
                 ) {
@@ -4251,7 +4412,7 @@ private fun KioskSettingsScreen(
                         imageVector = Icons.Default.PhotoCamera,
                         contentDescription = null,
                         tint = Color(0xFF15803D),
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(24.dp)
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
@@ -4260,29 +4421,37 @@ private fun KioskSettingsScreen(
                         fontFamily = InterFontFamily,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = Color(0xFF0F172A)
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = if (uiState.isAdmin) "Manage and register employee faces" else "Register your face for attendance scan",
                         fontFamily = InterFontFamily,
                         fontSize = 12.sp,
-                        color = TextMuted
+                        color = Color(0xFF64748B)
                     )
                 }
+                Icon(
+                    imageVector = Icons.Default.Face,
+                    contentDescription = null,
+                    tint = Color(0xFF86EFAC),
+                    modifier = Modifier.size(28.dp)
+                )
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = null,
                     tint = Color(0xFF15803D),
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
 
-        // 3. Language Selector Card
+        // ── 3. Language / भाषा Card ─────────────────────────────────
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(18.dp),
             color = Color.White,
-            border = BorderStroke(1.dp, CardBorder),
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            shadowElevation = 1.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -4291,52 +4460,346 @@ private fun KioskSettingsScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text(
-                    text = s.languageLabel,
-                    fontFamily = InterFontFamily,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isLanguageExpanded = !isLanguageExpanded },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE0F2FE)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = null,
+                            tint = Color(0xFF0284C7),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Language / भाषा",
+                            fontFamily = InterFontFamily,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(
+                            text = "Choose your preferred language",
+                            fontFamily = InterFontFamily,
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+                    Icon(
+                        imageVector = if (isLanguageExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.ArrowDropDown,
+                        contentDescription = null,
+                        tint = Color(0xFF64748B),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
 
-                val languages = listOf(
-                    "en" to "English",
-                    "mr" to "मराठी (Marathi)",
-                    "hi" to "हिंदी (Hindi)",
-                    "gu" to "ગુજરાતી (Gujarati)"
-                )
+                if (isLanguageExpanded) {
+                    val languages = listOf(
+                        Triple("en", "English", "EN" to Pair(Color(0xFFCCFBF1), Color(0xFF0F766E))),
+                        Triple("mr", "मराठी (Marathi)", "म" to Pair(Color(0xFFFEE2E2), Color(0xFFDC2626))),
+                        Triple("hi", "हिंदी (Hindi)", "हि" to Pair(Color(0xFFE0F2FE), Color(0xFF0284C7))),
+                        Triple("gu", "ગુજરાતી (Gujarati)", "ગુ" to Pair(Color(0xFFF3E8FF), Color(0xFF7E22CE)))
+                    )
 
-                languages.forEach { (code, name) ->
-                    val selected = currentLanguage.equals(code, ignoreCase = true)
+                    languages.forEach { (code, name, badgeInfo) ->
+                        val selected = currentLanguage.equals(code, ignoreCase = true)
+                        val (badgeText, badgeColors) = badgeInfo
+                        val (badgeBg, badgeTextClr) = badgeColors
+
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (selected) Color(0xFFE6F8F5) else Color(0xFFF8FAFC),
+                            border = BorderStroke(
+                                1.dp,
+                                if (selected) Color(0xFF5EEAD4) else Color(0xFFF1F5F9)
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onLanguageSelected(code) }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(badgeBg)
+                                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = badgeText,
+                                            fontFamily = InterFontFamily,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp,
+                                            color = badgeTextClr
+                                        )
+                                    }
+                                    Text(
+                                        text = name,
+                                        fontFamily = InterFontFamily,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                        color = Color(0xFF0F172A)
+                                    )
+                                }
+
+                                // Radio Button
+                                if (selected) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .border(2.dp, Color(0xFF006D77), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(10.dp)
+                                                .background(Color(0xFF006D77), CircleShape)
+                                        )
+                                    }
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .border(2.dp, Color(0xFFCBD5E1), CircleShape)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── 4. Auto Submit Switch Card ──────────────────────────────
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            shadowElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE0F2FE)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bolt,
+                            contentDescription = null,
+                            tint = Color(0xFF0284C7),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                    Column {
+                        Text(
+                            text = "Auto Submit",
+                            fontFamily = InterFontFamily,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "Press Capture to mark attendance",
+                            fontFamily = InterFontFamily,
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+                }
+                Switch(
+                    checked = uiState.isAutoSubmitEnabled,
+                    onCheckedChange = onAutoSubmitChange,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = Color(0xFF006D77),
+                        uncheckedThumbColor = Color.White,
+                        uncheckedTrackColor = Color(0xFFCBD5E1)
+                    )
+                )
+            }
+        }
+
+        // ── 5. System Diagnostics Card ──────────────────────────────
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = Color.White,
+            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+            shadowElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isDiagnosticsExpanded = !isDiagnosticsExpanded },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFD1FAE5)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = null,
+                            tint = Color(0xFF059669),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "System Diagnostics",
+                            fontFamily = InterFontFamily,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF0F172A)
+                        )
+                        Text(
+                            text = "Troubleshoot and view logs",
+                            fontFamily = InterFontFamily,
+                            fontSize = 12.sp,
+                            color = Color(0xFF64748B)
+                        )
+                    }
+                    Icon(
+                        imageVector = if (isDiagnosticsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.ArrowDropDown,
+                        contentDescription = null,
+                        tint = Color(0xFF64748B),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                if (isDiagnosticsExpanded) {
+                    // Item 1: View App Error & Connection Logs
                     Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = if (selected) Color(0xFFE6FFFA) else Color(0xFFF8FAFC),
-                        border = BorderStroke(1.dp, if (selected) BrandPrimary else Color(0xFFE2E8F0)),
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.White,
+                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onLanguageSelected(code) }
+                            .clickable { onViewLogs() }
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
-                                text = name,
-                                fontFamily = InterFontFamily,
-                                fontSize = 13.sp,
-                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selected) BrandPrimary else TextPrimary
-                            )
-                            if (selected) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Description,
+                                    contentDescription = null,
+                                    tint = Color(0xFF64748B),
+                                    modifier = Modifier.size(18.dp)
+                                )
                                 Text(
-                                    text = "✓",
+                                    text = "View App Error & Connection Logs",
                                     fontFamily = InterFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp,
-                                    color = BrandPrimary
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color(0xFF334155)
+                                )
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                tint = Color(0xFF64748B),
+                                modifier = Modifier.size(15.dp)
+                            )
+                        }
+                    }
+
+                    // Item 2: Configure Server URL (Admin Only)
+                    if (uiState.isAdmin) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onSettingsClicked() }
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Dns,
+                                        contentDescription = null,
+                                        tint = Color(0xFF64748B),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Text(
+                                        text = "Configure Server URL",
+                                        fontFamily = InterFontFamily,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color(0xFF334155)
+                                    )
+                                }
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    tint = Color(0xFF64748B),
+                                    modifier = Modifier.size(15.dp)
                                 )
                             }
                         }
@@ -4345,98 +4808,7 @@ private fun KioskSettingsScreen(
             }
         }
 
-        // 4. Auto Submit Switch (Admin Only)
-        if (uiState.isAdmin) {
-            Surface(
-                shape = RoundedCornerShape(14.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, CardBorder),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = s.autoSubmitLabel,
-                            fontFamily = InterFontFamily,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = TextPrimary
-                        )
-                        Text(
-                            text = if (uiState.isAutoSubmitEnabled) s.autoSubmitReady else s.autoSubmitManual,
-                            fontFamily = InterFontFamily,
-                            fontSize = 12.sp,
-                            color = TextMuted
-                        )
-                    }
-                    Switch(
-                        checked = uiState.isAutoSubmitEnabled,
-                        onCheckedChange = onAutoSubmitChange,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color.White,
-                            checkedTrackColor = BrandPrimary
-                        )
-                    )
-                }
-            }
-        }
-
-        // 5. Diagnostics & Server Logs
-        Surface(
-            shape = RoundedCornerShape(14.dp),
-            color = Color.White,
-            border = BorderStroke(1.dp, CardBorder),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "System Diagnostics",
-                    fontFamily = InterFontFamily,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-                OutlinedButton(
-                    onClick = onViewLogs,
-                    shape = RoundedCornerShape(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "View App Error & Connection Logs",
-                        fontFamily = InterFontFamily,
-                        fontSize = 12.sp,
-                        color = Color(0xFF334155)
-                    )
-                }
-                if (uiState.isAdmin) {
-                    OutlinedButton(
-                        onClick = onSettingsClicked,
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text(
-                            text = "Configure Server URL",
-                            fontFamily = InterFontFamily,
-                            fontSize = 12.sp,
-                            color = BrandPrimary
-                        )
-                    }
-                }
-            }
-        }
-
-        // 6. Logout Button
+        // ── 6. Log out Button ───────────────────────────────────────
         Button(
             onClick = onLogoutClick,
             shape = RoundedCornerShape(12.dp),
@@ -4453,7 +4825,7 @@ private fun KioskSettingsScreen(
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = s.logoutButton,
+                text = "Log out",
                 fontFamily = InterFontFamily,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
@@ -4461,6 +4833,6 @@ private fun KioskSettingsScreen(
             )
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
     }
 }
