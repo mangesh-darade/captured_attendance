@@ -26,3 +26,12 @@
     @com.squareup.moshi.Json *;
 }
 
+
+# Moshi reflection models, Retrofit and the WebView bridge must survive shrinking.
+-keep class com.example.data.model.** { *; }
+-keep class com.example.face.** { *; }
+-keepclassmembers class * {
+    @android.webkit.JavascriptInterface <methods>;
+}
+-keep class kotlin.Metadata { *; }
+-keepattributes Signature, *Annotation*, InnerClasses, EnclosingMethod
