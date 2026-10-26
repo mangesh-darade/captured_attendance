@@ -9,6 +9,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.PowerManager
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -33,6 +34,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -62,6 +64,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PhotoCamera
@@ -89,6 +92,7 @@ import androidx.compose.foundation.lazy.items
 import com.example.data.model.AttendanceRecordItem
 import com.example.data.model.TodayAttendanceSummary
 import com.example.data.model.EnrollmentUserItem
+import com.example.data.model.AttendanceUserOption
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -129,6 +133,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -192,6 +199,9 @@ import com.example.ui.theme.ToastSuccessBg
 import com.example.ui.theme.ToastSuccessBorder
 import com.example.ui.theme.ToastSuccessText
 
+/**
+ * Visual state of the oval face guide on the camera: colours, chip label and caption.
+ */
 private data class FaceGuideLook(
     val ovalColor: Color,
     val dashed: Boolean,
@@ -201,15 +211,28 @@ private data class FaceGuideLook(
     val captionColor: Color
 )
 
+/**
+ * Translates a ViewModel status string into the selected language.
+ */
 private fun localizeStatusText(status: String, lang: String): String =
     LangManager.getStrings(lang).localizeStatus(status)
 
+/**
+ * Translates a toast / error message into the selected language (keyword based).
+ */
 private fun localizeToastMessage(message: String, lang: String): String =
     LangManager.getStrings(lang).localizeToast(message)
 
+/**
+ * Translates the "last activity" text (check-in / check-out time) into the selected language.
+ */
 private fun localizeActivityText(text: String, lang: String): String =
     LangManager.getStrings(lang).localizeActivity(text)
 
+/**
+ * Maps the live face-detection status text to the guide look.
+ * Status text stays English on purpose: this function matches keywords in it.
+ */
 private fun faceGuideLook(status: String, captured: Boolean, lang: String): FaceGuideLook {
     val s = LangManager.getStrings(lang)
     if (captured) {
@@ -278,12 +301,24 @@ private fun faceGuideLook(status: String, captured: Boolean, lang: String): Face
 }
 
 
+/**
+ * Bottom navigation tabs: Home, History and Settings.
+ */
 enum class KioskBottomTab {
     HOME,
     CAPTURE,
     SETTINGS
 }
 
+/**
+ * Root screen of the kiosk app.
+ *
+ * Responsibilities:
+ * - Requests camera / location permissions and reports their state to the ViewModel.
+ * - Hosts the hidden WebView that runs face-api.js (face detection and descriptors).
+ * - Chooses what to show: merchant setup / login, Home, History, Settings or face enrollment.
+ * - Shows global overlays: toast banner, profile dialog, diagnostics dialog.
+ */
 @Composable
 fun AttendanceKioskScreen(
     viewModel: AttendanceViewModel,
@@ -291,7 +326,8 @@ fun AttendanceKioskScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val uiState by viewModel.uiState.collectAsState()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val haptic = LocalHapticFeedback.current
     var currentTab by rememberSaveable { mutableStateOf(KioskBottomTab.HOME) }
     var showProfile by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
@@ -476,8 +512,8 @@ fun AttendanceKioskScreen(
                         scanCount = uiState.enrollmentScanCount,
                         facePhoto = uiState.enrollmentFacePhoto,
                         isRegistering = uiState.isRegisteringFace,
-                        successMsg = uiState.enrollmentSuccessMsg,
-                        errorMsg = uiState.enrollmentErrorMsg,
+                        successMsg = uiState.enrollmentSuccessMsg?.let { localizeToastMessage(it, uiState.appLanguage) },
+                        errorMsg = uiState.enrollmentErrorMsg?.let { localizeToastMessage(it, uiState.appLanguage) },
                         isCameraActive = uiState.isCameraActive,
                         faceBridge = faceBridge,
                         webViewManager = webViewManager,
@@ -497,9 +533,14 @@ fun AttendanceKioskScreen(
                     AttendanceHistoryScreen(
                         summary = uiState.todaySummary,
                         records = uiState.todayRecords,
+                        users = uiState.todayAttendanceUsers,
+                        selectedUserId = uiState.selectedAttendanceUserId,
+                        isAdmin = uiState.isAdmin,
+                        currentUserName = uiState.loggedInUserName,
                         isLoading = uiState.isTodayAttendanceLoading,
-                        errorMessage = uiState.todayAttendanceError,
+                        errorMessage = uiState.todayAttendanceError?.let { localizeToastMessage(it, uiState.appLanguage) },
                         currentLanguage = currentLanguage,
+                        onSelectUser = { viewModel.selectAttendanceUser(it) },
                         onRefresh = { viewModel.fetchTodayAttendance() },
                         onBack = { viewModel.closeTodayAttendance() }
                     )
@@ -933,7 +974,10 @@ fun AttendanceKioskScreen(
                                         buttonState = uiState.buttonState,
                                         isPosting = uiState.isPosting,
                                         isLocationReady = isLocationReady,
-                                        onCaptureClick = { viewModel.onCaptureButtonClicked() },
+                                        onCaptureClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            viewModel.onCaptureButtonClicked()
+                                        },
                                         s = s
                                     )
                                 }
@@ -1013,7 +1057,7 @@ fun AttendanceKioskScreen(
                 EnrollmentUserListDialog(
                     users = uiState.enrollmentUsers,
                     isLoading = uiState.isEnrollmentLoading,
-                    errorMsg = uiState.enrollmentErrorMsg,
+                    errorMsg = uiState.enrollmentErrorMsg?.let { localizeToastMessage(it, uiState.appLanguage) },
                     currentLanguage = uiState.appLanguage,
                     onSelectUser = { viewModel.selectEnrollmentUser(it) },
                     onRefreshUsers = { viewModel.fetchEnrollmentUsers() },
@@ -1231,6 +1275,10 @@ fun AttendanceKioskScreen(
 }
 }
 
+/**
+ * Top bar: tenant logo and site name, optional back button and profile avatar.
+ * Long-pressing the logo calls onLogoLongClick.
+ */
 @Composable
 private fun HeaderBar(
     tenantLogoUrl: String?,
@@ -1348,6 +1396,10 @@ private fun HeaderBar(
     }
 }
 
+/**
+ * Reads camera, precise-location and GPS state from the system and pushes it to the ViewModel.
+ * Called on start, after the permission dialog and on every ON_RESUME.
+ */
 private fun reportDeviceAccess(context: android.content.Context, viewModel: AttendanceViewModel) {
     val cameraAllowed = ContextCompat.checkSelfPermission(
         context, Manifest.permission.CAMERA
@@ -1365,6 +1417,9 @@ private fun reportDeviceAccess(context: android.content.Context, viewModel: Atte
     viewModel.setDeviceAccess(cameraAllowed, locationAllowed, gpsEnabled)
 }
 
+/**
+ * Home card that lists camera, location, GPS and internet status with a shortcut to fix each problem.
+ */
 @Composable
 private fun AccessStatusCard(
     cameraAllowed: Boolean,
@@ -1424,6 +1479,9 @@ private fun AccessStatusCard(
     }
 }
 
+/**
+ * One row of [AccessStatusCard]: label, OK / problem state and an optional fix button.
+ */
 @Composable
 private fun StatusRow(
     message: String,
@@ -1464,6 +1522,9 @@ private fun StatusRow(
     }
 }
 
+/**
+ * Round avatar with the initial of the logged-in user.
+ */
 @Composable
 private fun ProfileAvatar(
     name: String,
@@ -1489,6 +1550,9 @@ private fun ProfileAvatar(
     }
 }
 
+/**
+ * Profile popup: user name, language, auto-submit switch, face enrollment shortcut and logout.
+ */
 @Composable
 private fun ProfileDialog(
     userName: String,
@@ -1695,13 +1759,22 @@ private fun ProfileDialog(
     )
 }
 
+/**
+ * History screen: 1 month of check-in / check-out records with summary and filters.
+ * A normal user sees their own name; tapping a row opens [AttendanceRecordDetailDialog].
+ */
 @Composable
 private fun AttendanceHistoryScreen(
     summary: TodayAttendanceSummary?,
     records: List<AttendanceRecordItem>,
+    users: List<AttendanceUserOption> = emptyList(),
+    selectedUserId: Int? = null,
+    isAdmin: Boolean = false,
+    currentUserName: String = "",
     isLoading: Boolean,
     errorMessage: String?,
     currentLanguage: String = "en",
+    onSelectUser: (Int?) -> Unit,
     onRefresh: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -1710,9 +1783,10 @@ private fun AttendanceHistoryScreen(
     var selectedFilter by remember { mutableStateOf("ALL") }
     var selectedRecord by remember { mutableStateOf<AttendanceRecordItem?>(null) }
 
-    val filteredRecords = remember(records, searchQuery, selectedFilter) {
+    val filteredRecords = remember(records, searchQuery, selectedFilter, selectedUserId) {
         val todayDateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault()).format(java.util.Date())
         records.filter { rec ->
+            val matchesUser = if (selectedUserId == null || selectedUserId == 0) true else rec.userId == selectedUserId
             val matchesQuery = if (searchQuery.isBlank()) true else {
                 rec.userName.contains(searchQuery.trim(), ignoreCase = true) ||
                 (rec.phone?.contains(searchQuery.trim()) ?: false) ||
@@ -1725,7 +1799,7 @@ private fun AttendanceHistoryScreen(
                 "OUT"   -> !rec.outTime.isNullOrBlank()
                 else    -> true
             }
-            matchesQuery && matchesFilter
+            matchesUser && matchesQuery && matchesFilter
         }
     }
 
@@ -1898,7 +1972,80 @@ private fun AttendanceHistoryScreen(
             }
         }
 
-        // 3. Filter Chips
+        // 3. User Filter: Dropdown for Admin, Own Name for Regular Employee
+        if (!isAdmin) {
+            // Non-Admin: Display own name badge only
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = Color(0xFFF0FDF4),
+                border = BorderStroke(1.dp, Color(0xFFDCFCE7)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFDCFCE7)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = Color(0xFF166534),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Column {
+                            Text(
+                                text = s.myAttendanceOnly,
+                                fontFamily = InterFontFamily,
+                                fontSize = 10.sp,
+                                color = Color(0xFF166534),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = currentUserName.ifBlank { users.firstOrNull()?.name ?: "Me" },
+                                fontFamily = InterFontFamily,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Color(0xFF0F172A),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFFDCFCE7))
+                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                    ) {
+                        Text(
+                            text = "Self",
+                            fontFamily = InterFontFamily,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF166534)
+                        )
+                    }
+                }
+            }
+        }
+
+        // 4. Filter Chips
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -2066,6 +2213,9 @@ private fun AttendanceHistoryScreen(
     }
 }
 
+/**
+ * Fixed-height (58dp) history row showing date, in / out time and status.
+ */
 @Composable
 private fun AttendanceCompactRecordRow(
     record: AttendanceRecordItem,
@@ -2214,6 +2364,9 @@ private fun AttendanceCompactRecordRow(
     }
 }
 
+/**
+ * Full details of one attendance record.
+ */
 @Composable
 private fun AttendanceRecordDetailDialog(
     record: AttendanceRecordItem,
@@ -2603,6 +2756,9 @@ private fun AttendanceRecordDetailDialog(
     }
 }
 
+/**
+ * List of employees that can be enrolled. Admin picks one; a normal user is auto-selected.
+ */
 @Composable
 private fun EnrollmentUserListDialog(
     users: List<EnrollmentUserItem>,
@@ -2803,6 +2959,9 @@ private fun EnrollmentUserListDialog(
     )
 }
 
+/**
+ * Face enrollment screen: camera preview with oval guide, collects 4 face scans and sends them with "Register Face".
+ */
 @Composable
 private fun FaceEnrollmentScannerView(
     user: EnrollmentUserItem,
@@ -3168,6 +3327,9 @@ private fun FaceEnrollmentScannerView(
     }
 }
 
+/**
+ * One employee row in [EnrollmentUserListDialog].
+ */
 @Composable
 private fun EnrollmentUserRow(user: EnrollmentUserItem, onSelect: () -> Unit) {
     Surface(
@@ -3244,6 +3406,9 @@ private fun EnrollmentUserRow(user: EnrollmentUserItem, onSelect: () -> Unit) {
     }
 }
 
+/**
+ * Shown when several sites are nearby: lets the user choose the site used for the punch.
+ */
 @Composable
 private fun LocationPickerSection(
     options: List<com.example.data.model.LocationOption>,
@@ -3367,6 +3532,9 @@ private fun LocationPickerSection(
     }
 }
 
+/**
+ * IN / OUT toggle showing the next action the server expects.
+ */
 @Composable
 private fun ToggleIndicators(
     activeToggle: String, // "IN" or "OUT"
@@ -3458,6 +3626,9 @@ private fun ToggleIndicators(
     }
 }
 
+/**
+ * Optional free-text note that is sent with the punch.
+ */
 @Composable
 private fun NotesSection(
     notes: String,
@@ -3522,6 +3693,9 @@ private fun NotesSection(
     }
 }
 
+/**
+ * Bottom bar with the main Capture / Retake button.
+ */
 @Composable
 private fun StickyBottomBar(
     buttonState: AttendanceButtonState,
@@ -3602,6 +3776,9 @@ private fun StickyBottomBar(
     }
 }
 
+/**
+ * Floating banner for success / info / error messages. Text is translated here.
+ */
 @Composable
 private fun ToastBanner(
     toast: com.example.data.model.ToastMessage,
@@ -3653,6 +3830,9 @@ private fun ToastBanner(
     }
 }
 
+/**
+ * First-run flow: step 1 Android unique code (device setup), step 2 user name / mobile number and password login.
+ */
 @Composable
 private fun MerchantCodeScreen(
     androidCode: String,
@@ -3934,7 +4114,7 @@ private fun MerchantCodeScreen(
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Text(
-                                        text = loginError,
+                                        text = s.localizeToast(loginError),
                                         fontFamily = InterFontFamily,
                                         fontSize = 13.sp,
                                         color = Color(0xFFB91C1C),
@@ -4035,7 +4215,7 @@ private fun MerchantCodeScreen(
                             ) {
                                 Column(modifier = Modifier.padding(12.dp)) {
                                     Text(
-                                        text = setupError,
+                                        text = s.localizeToast(setupError),
                                         fontFamily = InterFontFamily,
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Medium,
@@ -4178,6 +4358,9 @@ private fun MerchantCodeScreen(
     }
 }
 
+/**
+ * Dialog with server URL, connection test, auto-submit option and a shortcut to the logs.
+ */
 @Composable
 private fun SettingsDialog(
     currentBaseUrl: String,
@@ -4468,6 +4651,9 @@ private fun SettingsDialog(
     }
 }
 
+/**
+ * Bottom navigation bar for [KioskBottomTab].
+ */
 @Composable
 private fun KioskBottomNavigationBar(
     selectedTab: KioskBottomTab,
@@ -4651,6 +4837,9 @@ private fun KioskBottomNavigationBar(
     }
 }
 
+/**
+ * Home tab: today status and Quick Actions (Attendance Log, Register/Update Face).
+ */
 @Composable
 private fun KioskHomeScreen(
     uiState: AttendanceUiState,
@@ -4889,7 +5078,9 @@ private fun KioskHomeScreen(
         )
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Max),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Card 1: Today's Log
@@ -4900,11 +5091,12 @@ private fun KioskHomeScreen(
                 shadowElevation = 1.dp,
                 modifier = Modifier
                     .weight(1f)
+                    .fillMaxHeight()
                     .clickable { onOpenHistory() }
             ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(Color.White, Color.White, Color(0xFFF0F9FF))
@@ -4973,11 +5165,12 @@ private fun KioskHomeScreen(
                 shadowElevation = 1.dp,
                 modifier = Modifier
                     .weight(1f)
+                    .fillMaxHeight()
                     .clickable { onOpenFaceEnrollment() }
             ) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .background(
                             Brush.verticalGradient(
                                 colors = listOf(Color.White, Color.White, Color(0xFFF0FDF4))
@@ -5022,14 +5215,14 @@ private fun KioskHomeScreen(
                         }
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = s.faceBiometricTitle,
+                            text = s.faceBiometricSubtitle,
                             fontFamily = InterFontFamily,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
                             color = Color(0xFF0F172A)
                         )
                         Text(
-                            text = s.faceBiometricSubtitle,
+                            text = s.faceBiometricHint,
                             fontFamily = InterFontFamily,
                             fontSize = 11.sp,
                             color = Color(0xFF64748B)
@@ -5041,6 +5234,198 @@ private fun KioskHomeScreen(
     }
 }
 
+/**
+ * One row in [PermissionsAccessCard]: label, granted state, optional hint and the action that opens the right system settings page.
+ */
+private data class PermissionRowData(
+    val label: String,
+    val granted: Boolean,
+    val hint: String? = null,
+    val onFix: () -> Unit
+)
+
+/**
+ * Settings card that shows every permission the app needs (camera, precise location, GPS,
+ * location "all the time" for background area tracking, notifications, unrestricted battery)
+ * with a button that opens the matching Android settings page. Re-checks on every ON_RESUME.
+ * Collapsed by default; tap the header to expand.
+ */
+@Composable
+private fun PermissionsAccessCard(s: AppStrings) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var refreshKey by remember { mutableStateOf(0) }
+    var expanded by remember { mutableStateOf(false) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) refreshKey++
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    fun granted(permission: String) =
+        ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+    fun openAppSettings() {
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        )
+    }
+
+    val rows = remember(refreshKey) {
+        val gpsOn = try {
+            val manager = context.getSystemService(android.content.Context.LOCATION_SERVICE) as LocationManager
+            manager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        } catch (_: Exception) {
+            false
+        }
+        val batteryFree = try {
+            (context.getSystemService(android.content.Context.POWER_SERVICE) as PowerManager)
+                .isIgnoringBatteryOptimizations(context.packageName)
+        } catch (_: Exception) {
+            false
+        }
+        buildList {
+            add(PermissionRowData(s.permCamera, granted(Manifest.permission.CAMERA)) { openAppSettings() })
+            add(PermissionRowData(s.permPreciseLocation, granted(Manifest.permission.ACCESS_FINE_LOCATION)) { openAppSettings() })
+            add(
+                PermissionRowData(s.permGps, gpsOn) {
+                    context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+            )
+            if (Build.VERSION.SDK_INT >= 29) {
+                add(
+                    PermissionRowData(
+                        s.permBackgroundLocation,
+                        granted(Manifest.permission.ACCESS_BACKGROUND_LOCATION),
+                        s.permBackgroundHint
+                    ) { openAppSettings() }
+                )
+            }
+            if (Build.VERSION.SDK_INT >= 33) {
+                add(PermissionRowData(s.permNotifications, granted(Manifest.permission.POST_NOTIFICATIONS)) { openAppSettings() })
+            }
+            add(
+                PermissionRowData(s.permBattery, batteryFree, s.permBatteryHint) {
+                    context.startActivity(
+                        Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            )
+        }
+    }
+
+    Surface(
+        shape = RoundedCornerShape(18.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+        shadowElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Header: tap to expand / collapse. Collapsed by default, same as the Language card.
+            val allGranted = rows.all { it.granted }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(if (allGranted) Color(0xFFDCFCE7) else Color(0xFFFEF3C7)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        tint = if (allGranted) Color(0xFF16A34A) else Color(0xFFD97706),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = s.permissionsTitle,
+                        fontFamily = InterFontFamily,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF0F172A)
+                    )
+                    // "4/6": how many permissions are already allowed.
+                    Text(
+                        text = "${rows.count { it.granted }}/${rows.size}",
+                        fontFamily = InterFontFamily,
+                        fontSize = 12.sp,
+                        color = if (allGranted) Color(0xFF16A34A) else Color(0xFFD97706)
+                    )
+                }
+                Icon(
+                    imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.ArrowDropDown,
+                    contentDescription = null,
+                    tint = Color(0xFF64748B),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            if (expanded) rows.forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Icon(
+                        imageVector = if (row.granted) Icons.Default.CheckCircle else Icons.Default.Warning,
+                        contentDescription = null,
+                        tint = if (row.granted) Color(0xFF16A34A) else Color(0xFFD97706),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = row.label,
+                            fontFamily = InterFontFamily,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF0F172A)
+                        )
+                        if (!row.granted && row.hint != null) {
+                            Text(
+                                text = row.hint,
+                                fontFamily = InterFontFamily,
+                                fontSize = 11.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                    }
+                    if (row.granted) {
+                        Text(
+                            text = s.permAllowed,
+                            fontFamily = InterFontFamily,
+                            fontSize = 12.sp,
+                            color = Color(0xFF16A34A)
+                        )
+                    } else {
+                        TextButton(onClick = row.onFix) {
+                            Text(s.permFix, fontFamily = InterFontFamily, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Settings tab: face enrollment shortcut, permissions card, language picker and diagnostics (collapsed by default).
+ */
 @Composable
 private fun KioskSettingsScreen(
     uiState: AttendanceUiState,
@@ -5073,12 +5458,6 @@ private fun KioskSettingsScreen(
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF0F172A)
-            )
-            Text(
-                text = s.settingsSubtitle,
-                fontFamily = InterFontFamily,
-                fontSize = 13.sp,
-                color = Color(0xFF64748B)
             )
         }
 
@@ -5115,18 +5494,11 @@ private fun KioskSettingsScreen(
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = s.faceBiometricTitle,
+                        text = s.faceBiometricSubtitle,
                         fontFamily = InterFontFamily,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF0F172A)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = if (uiState.isAdmin) s.faceBiometricAdminDesc else s.faceBiometricUserDesc,
-                        fontFamily = InterFontFamily,
-                        fontSize = 12.sp,
-                        color = Color(0xFF64748B)
                     )
                 }
                 Icon(
@@ -5143,6 +5515,9 @@ private fun KioskSettingsScreen(
                 )
             }
         }
+
+        // ── Permissions & background access ─────────────────────────
+        PermissionsAccessCard(s = s)
 
         // ── 3. Language / भाषा Card ─────────────────────────────────
         Surface(

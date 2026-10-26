@@ -43,7 +43,8 @@ interface AttendanceApiService {
         @Query("token") token: String,
         @Query("month") month: String? = null,
         @Query("start_date") startDate: String? = null,
-        @Query("end_date") endDate: String? = null
+        @Query("end_date") endDate: String? = null,
+        @Query("user_id") userId: Int? = null
     ): Response<com.example.data.model.TodayAttendanceResponse>
 
     @GET

@@ -18,6 +18,7 @@ import com.example.data.model.ToastMessage
 import com.example.data.model.ToastType
 import com.example.data.model.TodayAttendanceSummary
 import com.example.data.model.AttendanceRecordItem
+import com.example.data.model.AttendanceUserOption
 import com.example.data.model.EnrollmentUserItem
 import com.example.data.model.EnrollmentUsersResponse
 import com.example.data.model.RegisterFaceResponse
@@ -51,6 +52,9 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
 
+/**
+ * Single source of truth for every screen (setup, login, camera, location, history, enrollment).
+ */
 data class AttendanceUiState(
     val buttonState: AttendanceButtonState = AttendanceButtonState.CAPTURE,
     val statusText: String = "Camera active. Loading face model...",
@@ -102,6 +106,8 @@ data class AttendanceUiState(
     val isTodayAttendanceLoading: Boolean = false,
     val todaySummary: TodayAttendanceSummary = TodayAttendanceSummary(),
     val todayRecords: List<AttendanceRecordItem> = emptyList(),
+    val todayAttendanceUsers: List<AttendanceUserOption> = emptyList(),
+    val selectedAttendanceUserId: Int? = null,
     val todayAttendanceError: String? = null,
     val showFaceEnrollment: Boolean = false,
     val isEnrollmentLoading: Boolean = false,
@@ -114,6 +120,9 @@ data class AttendanceUiState(
     val enrollmentErrorMsg: String? = null
 )
 
+/**
+ * Business logic of the kiosk: setup / login, camera + face buffer, GPS, punch submit, offline queue and history.
+ */
 class AttendanceViewModel(application: Application) : AndroidViewModel(application) {
 
     private val shutterSound = MediaActionSound()
@@ -179,6 +188,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
     private data class CachedSite(val name: String, val lat: Double, val lng: Double, val radiusM: Int)
 
+    /**
+     * Keeps the newest camera frame (used as the captured photo) and recycles the previous one.
+     */
     fun onLatestFrame(bitmap: Bitmap) {
         val previous = latestBitmap
         latestBitmap = bitmap
@@ -205,6 +217,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         super.onCleared()
     }
 
+    /**
+     * Receives the system permission / GPS state from the UI.
+     */
     fun setDeviceAccess(cameraAllowed: Boolean, locationAllowed: Boolean, gpsEnabled: Boolean) {
         _uiState.update {
             it.copy(
@@ -224,6 +239,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Loads saved settings, restores the last activity, refreshes branding / sites and syncs the offline queue.
+     */
     private fun loadPreferencesAndBootstrap() {
         viewModelScope.launch {
             val base = preferencesRepository.tenantBaseUrlFlow.first()
@@ -332,10 +350,19 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.update { it.copy(showTodayAttendance = false) }
     }
 
+    fun selectAttendanceUser(userId: Int?) {
+        _uiState.update { it.copy(selectedAttendanceUserId = userId) }
+        fetchTodayAttendance(userId = userId)
+    }
+
+    /**
+     * Loads history from attendance_api/today_summary (month / date range / employee filter).
+     */
     fun fetchTodayAttendance(
         month: String? = null,
         startDate: String? = null,
-        endDate: String? = null
+        endDate: String? = null,
+        userId: Int? = _uiState.value.selectedAttendanceUserId
     ) {
         viewModelScope.launch {
             val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
@@ -347,20 +374,29 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
             _uiState.update { it.copy(isTodayAttendanceLoading = true, todayAttendanceError = null) }
             try {
+                val queryUserId = if (userId != null && userId > 0) userId else null
                 val response = networkClientManager.attendanceService.getTodayAttendance(
                     url = "${base}attendance_api/today_summary",
                     token = token,
                     month = month,
                     startDate = startDate,
-                    endDate = endDate
+                    endDate = endDate,
+                    userId = queryUserId
                 )
                 val body = response.body()
                 if (response.isSuccessful && body?.status.equals("success", ignoreCase = true)) {
+                    val serverIsAdmin = body?.isAdmin ?: _uiState.value.isAdmin
+                    val userList = body?.users ?: _uiState.value.todayAttendanceUsers
+                    val callerName = body?.callerUserName ?: _uiState.value.loggedInUserName
                     _uiState.update {
                         it.copy(
                             isTodayAttendanceLoading = false,
+                            isAdmin = serverIsAdmin,
+                            loggedInUserName = if (it.loggedInUserName.isBlank()) callerName else it.loggedInUserName,
                             todaySummary = body?.summary ?: TodayAttendanceSummary(),
                             todayRecords = body?.records ?: emptyList(),
+                            todayAttendanceUsers = userList,
+                            selectedAttendanceUserId = userId,
                             todayAttendanceError = null
                         )
                     }
@@ -413,6 +449,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Loads the employees the caller may enroll (attendance_api/users_for_enrollment).
+     */
     fun fetchEnrollmentUsers() {
         viewModelScope.launch {
             _uiState.update { it.copy(isEnrollmentLoading = true, enrollmentErrorMsg = null) }
@@ -483,6 +522,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Sends the averaged face descriptor of the enrollment scans to attendance_api/register_face.
+     */
     fun submitFaceRegistration() {
         val user = _uiState.value.selectedEnrollmentUser ?: return
         if (enrollmentDescriptors.isEmpty()) {
@@ -617,6 +659,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Device setup: resolves the company URL for the Android unique code (attendance_api/setup).
+     */
     fun setupWithAndroidCode(serverUrl: String, androidCode: String) {
         viewModelScope.launch {
             val code = androidCode.trim().uppercase()
@@ -723,6 +768,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * User login with user name / mobile number and password (attendance_api/login). Stores the device token.
+     */
     fun login(phone: String, password: String) {
         viewModelScope.launch {
             val phoneValue = phone.trim()
@@ -800,6 +848,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Logs out on the server, clears the token and stops background area tracking.
+     */
     fun logout() {
         viewModelScope.launch {
             val state = _uiState.value
@@ -829,6 +880,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         updateSettings(newUrl, _uiState.value.isAutoSubmitEnabled)
     }
 
+    /**
+     * Checks that the server is reachable (attendance_api/init).
+     */
     fun testConnection(url: String, onResult: (Boolean, String) -> Unit) {
         viewModelScope.launch {
             val sanitized = networkClientManager.baseUrlFromCompanyCode(url)
@@ -866,6 +920,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Camera preview is running.
+     */
     fun onCameraStarted() {
         _uiState.update {
             it.copy(
@@ -879,6 +936,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Camera could not start: shows Retake and an error toast.
+     */
     fun onCameraFailed(error: String? = null) {
         _uiState.update {
             it.copy(
@@ -891,6 +951,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         showToast(ToastType.ERROR, "Camera error: ${error ?: "Failed to access camera"}", 5500L)
     }
 
+    /**
+     * Result of loading the face-api.js models in the hidden WebView.
+     */
     fun onFaceModelLoaded(success: Boolean, message: String) {
         if (success) {
             _uiState.update {
@@ -910,9 +973,21 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Gets a precise GPS fix (up to 3 tries because GPS is cold at app start), resolves the landmark
+     * and asks the server which site the user is at.
+     */
     fun triggerLocationAndDerive(forceFresh: Boolean = false) {
         viewModelScope.launch {
-            val standing = refreshStandingLocation(forceFresh = forceFresh)
+            // GPS is cold right after app start (camera + face model load at the same time),
+            // so one miss is normal. Retry before telling the user it failed.
+            var standing = refreshStandingLocation(forceFresh = forceFresh)
+            var attempt = 1
+            while (standing == null && attempt < 3) {
+                delay(2_000L)
+                attempt++
+                standing = refreshStandingLocation(forceFresh = true)
+            }
             if (standing == null) {
                 showToast(
                     ToastType.ERROR,
@@ -1051,6 +1126,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
     }
 
+    /**
+     * One good face: buffer the descriptor, refresh the site preview and auto-submit when conditions are met.
+     */
     private fun handleGoodFace(result: FaceDetectionResult, now: Long) {
         consecutiveNoFaceTicks = 0
         consecutiveGoodTicks++
@@ -1061,7 +1139,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
 
         // On good face: at most every 2500 ms call derive_location_preview including descriptor
-        if (now - lastDeriveWithDescriptorTime >= 2500L) {
+        if (now - lastDeriveWithDescriptorTime >= 6000L) {
             lastDeriveWithDescriptorTime = now
             scheduleDerivePreview(includeDescriptor = true, debounceMs = 0L)
         }
@@ -1088,7 +1166,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    private suspend fun executeDerivePreview(includeDescriptor: Boolean) {
+    /**
+     * Calls attendance_api/derive_location_preview. Retries once on 403, logs out on 401.
+     */
+    private suspend fun executeDerivePreview(includeDescriptor: Boolean, retried: Boolean = false) {
         val state = _uiState.value
         if (state.isPosting) return
         val lat = state.currentLat ?: return
@@ -1117,10 +1198,10 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 descriptor = descriptorJson
             )
 
-            if (response.code() == 403) {
+            if (response.code() == 403 && !retried) {
                 // Token might be expired, refetch token and retry once
-                val refreshed = networkClientManager.getOrFetchToken(state.baseUrl, forceRefresh = true)
-                executeDerivePreview(includeDescriptor)
+                networkClientManager.getOrFetchToken(state.baseUrl, forceRefresh = true)
+                executeDerivePreview(includeDescriptor, retried = true)
                 return
             }
 
@@ -1210,6 +1291,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Capture / Retake button: submits when at least one valid descriptor exists, otherwise waits up to 1.8 s.
+     */
     fun onCaptureButtonClicked() {
         val state = _uiState.value
         if (state.isPosting) return
@@ -1261,6 +1345,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Posts the punch (attendance_api/store). Falls back to the offline queue when there is no internet.
+     */
     private fun submitAttendance(isAuto: Boolean) {
         val state = _uiState.value
         if (state.isPosting) return
@@ -1380,6 +1467,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Stores a punch locally with its real time; it is sent later by [sendPendingPunch].
+     */
     private fun saveOfflinePunch(
         state: AttendanceUiState,
         descriptors: List<List<Float>>,
@@ -1439,6 +1529,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    /**
+     * Uploads queued offline punches one by one. A rejected punch stays queued and does not block the others.
+     */
     private fun sendPendingPunch() {
         if (!networkClientManager.isOnline() || _uiState.value.deviceToken.isBlank()) return
         viewModelScope.launch {
@@ -1483,8 +1576,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                             syncedIds.add(item.optString("id"))
                             lastSuccess = response.body()
                         } else {
+                            // Server rejected this punch; keep it queued and try the rest.
                             failed = true
-                            break
                         }
                     } catch (_: Exception) {
                         failed = true
@@ -1587,6 +1680,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         return 2 * earth * asin(sqrt(a))
     }
 
+    /**
+     * Punch accepted: shows the message, flips IN / OUT and starts or stops area tracking.
+     */
     private fun handleStoreSuccess(res: StoreAttendanceResponse) {
         val successMsg = res.message ?: "Attendance marked"
         showToast(ToastType.SUCCESS, successMsg, 7000L)
@@ -1690,6 +1786,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.update { it.copy(areaTracking = true) }
     }
 
+    /**
+     * Punch rejected: shows the error, or the site picker when several sites are nearby.
+     */
     private fun handleStoreError(rawMessage: String) {
         val isMultipleLocs = rawMessage.contains("Multiple nearby locations found", ignoreCase = true)
 
@@ -1756,6 +1855,9 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
 
     private data class FormattedActivity(val text: String, val toggle: String?)
 
+    /**
+     * Averages the buffered 128-d face descriptors after dropping outliers.
+     */
     private fun averageDescriptors(buffer: List<List<Float>>): List<Float> {
         val list = synchronized(buffer) { buffer.filter { it.size == 128 } }
         if (list.isEmpty()) return emptyList()

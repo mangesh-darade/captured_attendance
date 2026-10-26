@@ -206,10 +206,22 @@ data class AttendanceRecordItem(
 )
 
 @JsonClass(generateAdapter = true)
+data class AttendanceUserOption(
+    val id: Int = 0,
+    val name: String = "",
+    val phone: String? = null
+)
+
+@JsonClass(generateAdapter = true)
 data class TodayAttendanceResponse(
     val status: String? = null,
     val message: String? = null,
     val date: String? = null,
+    @Json(name = "is_admin") val isAdmin: Boolean? = null,
+    @Json(name = "caller_user_id") val callerUserId: Int? = null,
+    @Json(name = "caller_user_name") val callerUserName: String? = null,
+    @Json(name = "selected_user_id") val selectedUserId: Int? = null,
+    val users: List<AttendanceUserOption>? = null,
     val summary: TodayAttendanceSummary? = null,
     val records: List<AttendanceRecordItem>? = null
 )
