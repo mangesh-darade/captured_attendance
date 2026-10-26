@@ -51,7 +51,7 @@
             const img = new Image();
             img.onload = async function() {
                 try {
-                    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.45 });
+                    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 });
                     const results = await faceapi
                         .detectAllFaces(img, options)
                         .withFaceLandmarks()
@@ -65,7 +65,7 @@
                         const r = results[0];
                         const score = r.detection ? r.detection.score : 0.85;
                         const box = r.detection && r.detection.box ? r.detection.box.width : 0;
-                        if (box < 80) {
+                        if (box < 60) {
                             report(1, Math.min(score, 0.5), "[]", "");
                         } else {
                             const desc = Array.from(r.descriptor);

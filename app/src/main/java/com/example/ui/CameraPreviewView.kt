@@ -35,6 +35,9 @@ import com.example.ui.theme.CameraBackground
 import java.io.ByteArrayOutputStream
 import java.util.concurrent.Executors
 
+/**
+ * Front camera preview. Every 700 ms it sends a 720 px JPEG frame for face detection (only when the previous frame is done).
+ */
 @Composable
 fun CameraPreviewView(
     modifier: Modifier = Modifier,
@@ -120,7 +123,7 @@ fun CameraPreviewView(
                                     }
 
                                     // Sharp enough for landmarks. 360px JPEG/65 was too soft to match a registered face.
-                                    val maxEdge = 960
+                                    val maxEdge = 720
                                     val longest = maxOf(upright.width, upright.height)
                                     val output = if (longest > maxEdge) {
                                         val scale = maxEdge.toFloat() / longest
@@ -137,7 +140,7 @@ fun CameraPreviewView(
                                     }
 
                                     val byteStream = ByteArrayOutputStream()
-                                    output.compress(Bitmap.CompressFormat.JPEG, 85, byteStream)
+                                    output.compress(Bitmap.CompressFormat.JPEG, 80, byteStream)
                                     val base64 = Base64.encodeToString(byteStream.toByteArray(), Base64.NO_WRAP)
                                     onFrameCaptured(base64, output)
                                 } catch (e: Exception) {
