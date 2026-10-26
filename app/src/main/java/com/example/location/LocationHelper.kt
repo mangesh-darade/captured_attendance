@@ -35,9 +35,9 @@ import kotlin.coroutines.resumeWithException
 private const val TARGET_ACCURACY_METERS = 20f
 
 /** Allow up to 75m for indoor kiosks/receptions where satellite GPS is partially obstructed. */
-private const val MAX_ACCEPTED_ACCURACY_METERS = 75f
+private const val MAX_ACCEPTED_ACCURACY_METERS = 100f
 
-private const val ACCURATE_FIX_TIMEOUT_MS = 15_000L
+private const val ACCURATE_FIX_TIMEOUT_MS = 20_000L
 
 internal data class LandmarkParts(
     val name: String = "",
@@ -174,6 +174,9 @@ class LocationHelper(
         ) == PackageManager.PERMISSION_GRANTED
     }
 
+    /**
+     * Returns a fresh, accurate location or a failure when permission / GPS is missing.
+     */
     @SuppressLint("MissingPermission")
     suspend fun getLocation(): Result<Location> {
         if (!hasFineLocation()) {
@@ -204,7 +207,7 @@ class LocationHelper(
         val best = AtomicReference<Location?>(null)
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1_000L)
             .setMinUpdateIntervalMillis(500L)
-            .setWaitForAccurateLocation(true)
+            .setWaitForAccurateLocation(false)
             .setGranularity(Granularity.GRANULARITY_FINE)
             .setMaxUpdateAgeMillis(0L)
             .setDurationMillis(ACCURATE_FIX_TIMEOUT_MS)
@@ -266,6 +269,9 @@ class LocationHelper(
         lastCachedIsFallback = false
     }
 
+    /**
+     * Converts coordinates to a readable landmark: native Geocoder first, Nominatim as fallback.
+     */
     suspend fun reverseGeocode(latitude: Double, longitude: Double): String {
         val cachedLat = lastCachedLat
         val cachedLng = lastCachedLng
