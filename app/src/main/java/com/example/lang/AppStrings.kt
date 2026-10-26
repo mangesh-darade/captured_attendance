@@ -81,6 +81,18 @@ interface AppStrings {
     val quickActionsHeader: String
     val todayLogTitle: String
     val todayLogSubtitle: String
+    val faceBiometricHint: String
+    val permissionsTitle: String
+    val permCamera: String
+    val permPreciseLocation: String
+    val permGps: String
+    val permBackgroundLocation: String
+    val permBackgroundHint: String
+    val permNotifications: String
+    val permBattery: String
+    val permBatteryHint: String
+    val permAllowed: String
+    val permFix: String
     val faceBiometricSubtitle: String
 
     // Merchant Code & Login Screen
@@ -125,6 +137,9 @@ interface AppStrings {
     val filterIn: String
     val filterOut: String
     val totalEntries: String
+    val allEmployeesOption: String
+    val filterEmployeeLabel: String
+    val myAttendanceOnly: String
     val recordDetailsTitle: String
     val notCheckedOutYet: String
     val punchLocation: String
