@@ -1,0 +1,145 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="1290" viewBox="0 0 1900 1290" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#0E6B5C"/></marker><marker id="r" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#B91C1C"/></marker><marker id="o" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#B46B00"/></marker></defs>
+<rect width="1900" height="1290" fill="#F7F6F2"/>
+<text x="950" y="42" text-anchor="middle" font-size="28" font-weight="700" fill="#1F3A33">ElintOmAT - Business Flow (who does what)</text>
+<rect x="20" y="90" width="1860" height="220" rx="14" fill="#fff" stroke="#CBE4DC" stroke-width="1.5"/>
+<rect x="20" y="90" width="46" height="220" rx="14" fill="#0E6B5C"/>
+<text x="43" y="200" text-anchor="middle" font-size="15" font-weight="700" fill="#fff" transform="rotate(-90 43 200)">EMPLOYEE (App)</text>
+<rect x="20" y="330" width="1860" height="220" rx="14" fill="#fff" stroke="#CBE4DC" stroke-width="1.5"/>
+<rect x="20" y="330" width="46" height="220" rx="14" fill="#0E6B5C"/>
+<text x="43" y="440" text-anchor="middle" font-size="15" font-weight="700" fill="#fff" transform="rotate(-90 43 440)">ANDROID APP</text>
+<rect x="20" y="570" width="1860" height="220" rx="14" fill="#fff" stroke="#CBE4DC" stroke-width="1.5"/>
+<rect x="20" y="570" width="46" height="220" rx="14" fill="#0E6B5C"/>
+<text x="43" y="680" text-anchor="middle" font-size="15" font-weight="700" fill="#fff" transform="rotate(-90 43 680)">API + DATABASE</text>
+<rect x="20" y="810" width="1860" height="220" rx="14" fill="#fff" stroke="#CBE4DC" stroke-width="1.5"/>
+<rect x="20" y="810" width="46" height="220" rx="14" fill="#0E6B5C"/>
+<text x="43" y="920" text-anchor="middle" font-size="15" font-weight="700" fill="#fff" transform="rotate(-90 43 920)">MANAGER / HR (Web)</text>
+<rect x="100" y="130" width="200" height="90" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/>
+<text x="200" y="171" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">1 Open app</text>
+<text x="200" y="187" text-anchor="middle" font-size="13" fill="#1F3A33" >Login (user + password)</text>
+<rect x="340" y="130" width="200" height="90" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/>
+<text x="440" y="171" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">2 Check in</text>
+<text x="440" y="187" text-anchor="middle" font-size="13" fill="#1F3A33" >Look at camera</text>
+<rect x="580" y="130" width="200" height="90" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/>
+<text x="680" y="171" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">3 Works / visits</text>
+<text x="680" y="187" text-anchor="middle" font-size="13" fill="#1F3A33" >note, photo, voice</text>
+<rect x="820" y="130" width="200" height="90" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/>
+<text x="920" y="171" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">4 Needs a day off?</text>
+<text x="920" y="187" text-anchor="middle" font-size="13" fill="#1F3A33" >Taps Late / WFH / Leave</text>
+<rect x="1060" y="130" width="200" height="90" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/>
+<text x="1160" y="171" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">5 End visit</text>
+<text x="1160" y="187" text-anchor="middle" font-size="13" fill="#1F3A33" >Check out (face)</text>
+<rect x="1300" y="130" width="200" height="90" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/>
+<text x="1400" y="171" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">6 Day complete</text>
+<text x="1400" y="187" text-anchor="middle" font-size="13" fill="#1F3A33" >note + mood, Save</text>
+<rect x="1540" y="130" width="300" height="90" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/>
+<text x="1690" y="171" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">7 Records</text>
+<text x="1690" y="187" text-anchor="middle" font-size="13" fill="#1F3A33" >hours, leave balance, requests</text>
+<rect x="100" y="370" width="200" height="90" rx="12" fill="#E7F2EE" stroke="#0E6B5C" stroke-width="2"/>
+<text x="200" y="411" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Home screen</text>
+<text x="200" y="427" text-anchor="middle" font-size="13" fill="#1F3A33" >status, stats, plan</text>
+<rect x="340" y="370" width="200" height="90" rx="12" fill="#E7F2EE" stroke="#0E6B5C" stroke-width="2"/>
+<text x="440" y="411" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Face + GPS capture</text>
+<text x="440" y="427" text-anchor="middle" font-size="13" fill="#1F3A33" >site matched</text>
+<rect x="580" y="370" width="200" height="90" rx="12" fill="#E7F2EE" stroke="#0E6B5C" stroke-width="2"/>
+<text x="680" y="411" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Timer + visit card</text>
+<text x="680" y="427" text-anchor="middle" font-size="13" fill="#1F3A33" >Today&#x27;s plan</text>
+<rect x="820" y="370" width="200" height="90" rx="12" fill="#E7F2EE" stroke="#0E6B5C" stroke-width="2"/>
+<text x="920" y="411" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Quick update sheet</text>
+<text x="920" y="427" text-anchor="middle" font-size="13" fill="#1F3A33" >Undo available</text>
+<rect x="1060" y="370" width="200" height="90" rx="12" fill="#E7F2EE" stroke="#0E6B5C" stroke-width="2"/>
+<text x="1160" y="411" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Geofence tracking</text>
+<text x="1160" y="427" text-anchor="middle" font-size="13" fill="#1F3A33" >stops at check-out</text>
+<rect x="1300" y="370" width="200" height="90" rx="12" fill="#E7F2EE" stroke="#0E6B5C" stroke-width="2"/>
+<text x="1400" y="411" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Pending sync note</text>
+<text x="1400" y="427" text-anchor="middle" font-size="13" fill="#1F3A33" >if offline</text>
+<rect x="1540" y="370" width="300" height="90" rx="12" fill="#E7F2EE" stroke="#0E6B5C" stroke-width="2"/>
+<text x="1690" y="411" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Reminders / alerts</text>
+<text x="1690" y="427" text-anchor="middle" font-size="13" fill="#1F3A33" >approval, left site</text>
+<rect x="100" y="610" width="200" height="90" rx="12" fill="#EAF2FE" stroke="#2F7CF6" stroke-width="2"/>
+<text x="200" y="651" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Token auth</text>
+<text x="200" y="667" text-anchor="middle" font-size="13" fill="#1F3A33" >home_summary</text>
+<rect x="340" y="610" width="200" height="90" rx="12" fill="#EAF2FE" stroke="#2F7CF6" stroke-width="2"/>
+<text x="440" y="651" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Face match + site</text>
+<text x="440" y="667" text-anchor="middle" font-size="13" fill="#1F3A33" >saves attendance</text>
+<rect x="580" y="610" width="200" height="90" rx="12" fill="#EAF2FE" stroke="#2F7CF6" stroke-width="2"/>
+<text x="680" y="651" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">visit_context / notes</text>
+<text x="680" y="667" text-anchor="middle" font-size="13" fill="#1F3A33" >visit_plans, notes</text>
+<rect x="820" y="610" width="200" height="90" rx="12" fill="#EAF2FE" stroke="#2F7CF6" stroke-width="2"/>
+<text x="920" y="651" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">quick_update</text>
+<text x="920" y="667" text-anchor="middle" font-size="13" fill="#1F3A33" >attendance_requests</text>
+<rect x="1060" y="610" width="200" height="90" rx="12" fill="#EAF2FE" stroke="#2F7CF6" stroke-width="2"/>
+<text x="1160" y="651" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">store(check_out)</text>
+<text x="1160" y="667" text-anchor="middle" font-size="13" fill="#1F3A33" >area_log, plan done</text>
+<rect x="1300" y="610" width="200" height="90" rx="12" fill="#EAF2FE" stroke="#2F7CF6" stroke-width="2"/>
+<text x="1400" y="651" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">day_wrapup</text>
+<text x="1400" y="667" text-anchor="middle" font-size="13" fill="#1F3A33" >records / my_day</text>
+<rect x="1540" y="610" width="300" height="90" rx="12" fill="#EAF2FE" stroke="#2F7CF6" stroke-width="2"/>
+<text x="1690" y="651" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">balances, shifts</text>
+<text x="1690" y="667" text-anchor="middle" font-size="13" fill="#1F3A33" >announcements, messages</text>
+<rect x="100" y="850" width="200" height="90" rx="12" fill="#FFF6E5" stroke="#B46B00" stroke-width="2"/>
+<text x="200" y="891" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Admin setup</text>
+<text x="200" y="907" text-anchor="middle" font-size="13" fill="#1F3A33" >sites, shift, leave</text>
+<rect x="340" y="850" width="200" height="90" rx="12" fill="#FFF6E5" stroke="#B46B00" stroke-width="2"/>
+<text x="440" y="891" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Reviews face-less</text>
+<text x="440" y="907" text-anchor="middle" font-size="13" fill="#1F3A33" >check-ins (manual)</text>
+<rect x="580" y="850" width="200" height="90" rx="12" fill="#FFF6E5" stroke="#B46B00" stroke-width="2"/>
+<text x="680" y="891" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Visit plans screen</text>
+<text x="680" y="907" text-anchor="middle" font-size="13" fill="#1F3A33" >assign stops</text>
+<rect x="820" y="850" width="200" height="90" rx="12" fill="#FFF6E5" stroke="#B46B00" stroke-width="2"/>
+<text x="920" y="891" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Attendance requests</text>
+<text x="920" y="907" text-anchor="middle" font-size="13" fill="#1F3A33" >Approve / Reject + note</text>
+<rect x="1060" y="850" width="200" height="90" rx="12" fill="#FFF6E5" stroke="#B46B00" stroke-width="2"/>
+<text x="1160" y="891" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Correction requests</text>
+<text x="1160" y="907" text-anchor="middle" font-size="13" fill="#1F3A33" >apply check-out</text>
+<rect x="1300" y="850" width="200" height="90" rx="12" fill="#FFF6E5" stroke="#B46B00" stroke-width="2"/>
+<text x="1400" y="891" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">App Home messages</text>
+<text x="1400" y="907" text-anchor="middle" font-size="13" fill="#1F3A33" >daily line, thought</text>
+<rect x="1540" y="850" width="300" height="90" rx="12" fill="#FFF6E5" stroke="#B46B00" stroke-width="2"/>
+<text x="1690" y="891" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Announcements</text>
+<text x="1690" y="907" text-anchor="middle" font-size="13" fill="#1F3A33" >needs-ack + read receipts</text>
+<path d="M300,175 L340,175" fill="none" stroke="#0E6B5C" stroke-width="2.4"  marker-end="url(#a)"/>
+<path d="M540,175 L580,175" fill="none" stroke="#0E6B5C" stroke-width="2.4"  marker-end="url(#a)"/>
+<path d="M780,175 L820,175" fill="none" stroke="#0E6B5C" stroke-width="2.4"  marker-end="url(#a)"/>
+<path d="M1020,175 L1060,175" fill="none" stroke="#0E6B5C" stroke-width="2.4"  marker-end="url(#a)"/>
+<path d="M1260,175 L1300,175" fill="none" stroke="#0E6B5C" stroke-width="2.4"  marker-end="url(#a)"/>
+<path d="M1500,175 L1540,175" fill="none" stroke="#0E6B5C" stroke-width="2.4"  marker-end="url(#a)"/>
+<path d="M200,220 L200,370" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<path d="M200,460 L200,610" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<path d="M440,220 L440,370" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<path d="M440,460 L440,610" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<path d="M680,220 L680,370" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<path d="M680,460 L680,610" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<path d="M920,220 L920,370" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<path d="M920,460 L920,610" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<path d="M1160,220 L1160,370" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<path d="M1160,460 L1160,610" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<path d="M1400,220 L1400,370" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<path d="M1400,460 L1400,610" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<path d="M1690,220 L1690,370" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<path d="M1690,460 L1690,610" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<path d="M440,700 L440,850" fill="none" stroke="#B46B00" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#o)"/>
+<path d="M680,700 L680,850" fill="none" stroke="#B46B00" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#o)"/>
+<path d="M920,700 L920,850" fill="none" stroke="#B46B00" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#o)"/>
+<path d="M1160,700 L1160,850" fill="none" stroke="#B46B00" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#o)"/>
+<path d="M1400,700 L1400,850" fill="none" stroke="#B46B00" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#o)"/>
+<path d="M1690,700 L1690,850" fill="none" stroke="#B46B00" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#o)"/>
+<path d="M200,850 L200,700" fill="none" stroke="#B46B00" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#o)"/>
+<rect x="100" y="1060" width="560" height="190" rx="12" fill="#fff" stroke="#B91C1C" stroke-width="2"/>
+<text x="380" y="1127" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Exceptions handled</text>
+<text x="380" y="1143" text-anchor="middle" font-size="13" fill="#1F3A33" >- Face fails 3 times: &quot;Check in without face scan&quot; + manual request to manager</text>
+<text x="380" y="1159" text-anchor="middle" font-size="13" fill="#1F3A33" >- No internet: punch saved as Pending, syncs later, &quot;Synced&quot; toast</text>
+<text x="380" y="1175" text-anchor="middle" font-size="13" fill="#1F3A33" >- Unknown site: allowed and saved as new location</text>
+<text x="380" y="1191" text-anchor="middle" font-size="13" fill="#1F3A33" >- Approved WFH day: punch is marked WFH</text>
+<rect x="700" y="1060" width="560" height="190" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/>
+<text x="980" y="1127" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Request lifecycle</text>
+<text x="980" y="1143" text-anchor="middle" font-size="13" fill="#1F3A33" >Sent -&gt; Pending -&gt; Approved / Rejected (or Undone)</text>
+<text x="980" y="1159" text-anchor="middle" font-size="13" fill="#1F3A33" >Leave approved: balance reduced</text>
+<text x="980" y="1175" text-anchor="middle" font-size="13" fill="#1F3A33" >Correction approved: check-out applied</text>
+<text x="980" y="1191" text-anchor="middle" font-size="13" fill="#1F3A33" >Late / can&#x27;t come clear after check-in</text>
+<rect x="1300" y="1060" width="540" height="190" rx="12" fill="#fff" stroke="#7C3AED" stroke-width="2"/>
+<text x="1570" y="1127" text-anchor="middle" font-size="13" fill="#1F3A33" font-weight="700">Business value</text>
+<text x="1570" y="1143" text-anchor="middle" font-size="13" fill="#1F3A33" >- Trusted attendance (face + GPS + geofence)</text>
+<text x="1570" y="1159" text-anchor="middle" font-size="13" fill="#1F3A33" >- Managers decide in one place, with context</text>
+<text x="1570" y="1175" text-anchor="middle" font-size="13" fill="#1F3A33" >- Employee always knows the status</text>
+<text x="1570" y="1191" text-anchor="middle" font-size="13" fill="#1F3A33" >- HR controls content without an app update</text></svg>

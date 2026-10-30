@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="1180" viewBox="0 0 1900 1180" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#0E6B5C"/></marker><marker id="r" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#B91C1C"/></marker><marker id="o" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#B46B00"/></marker></defs>
+<rect width="1900" height="1180" fill="#F7F6F2"/>
+<text x="950" y="42" text-anchor="middle" font-size="28" font-weight="700" fill="#1F3A33">ElintOmAT - Screen Flow (what the user sees)</text>
+<rect x="40" y="100" width="170" height="120" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/>
+<text x="125" y="156" text-anchor="middle" font-size="14" fill="#1F3A33" font-weight="700">LOGIN</text>
+<text x="125" y="173" text-anchor="middle" font-size="14" fill="#1F3A33" >user + password</text>
+<rect x="270" y="100" width="260" height="120" rx="12" fill="#E7F2EE" stroke="#0E6B5C" stroke-width="2"/>
+<text x="400" y="147" text-anchor="middle" font-size="14" fill="#1F3A33" font-weight="700">HOME</text>
+<text x="400" y="164" text-anchor="middle" font-size="14" fill="#1F3A33" >(not checked in)</text>
+<text x="400" y="181" text-anchor="middle" font-size="14" fill="#1F3A33" >card, tiles, stats</text>
+<rect x="600" y="100" width="260" height="120" rx="12" fill="#E7F2EE" stroke="#0E6B5C" stroke-width="2"/>
+<text x="730" y="147" text-anchor="middle" font-size="14" fill="#1F3A33" font-weight="700">CAPTURE</text>
+<text x="730" y="164" text-anchor="middle" font-size="14" fill="#1F3A33" >face camera + location</text>
+<text x="730" y="181" text-anchor="middle" font-size="14" fill="#1F3A33" >IN / OUT, notes</text>
+<rect x="930" y="100" width="290" height="120" rx="12" fill="#E3F1EB" stroke="#0E6B5C" stroke-width="2"/>
+<text x="1075" y="147" text-anchor="middle" font-size="14" fill="#1F3A33" font-weight="700">HOME (checked in)</text>
+<text x="1075" y="164" text-anchor="middle" font-size="14" fill="#1F3A33" >Checked in - 3h 12m</text>
+<text x="1075" y="181" text-anchor="middle" font-size="14" fill="#1F3A33" >visit card + live timer</text>
+<rect x="1290" y="100" width="220" height="120" rx="12" fill="#fff" stroke="#B91C1C" stroke-width="2"/>
+<text x="1400" y="156" text-anchor="middle" font-size="14" fill="#1F3A33" font-weight="700">END VISIT</text>
+<text x="1400" y="173" text-anchor="middle" font-size="14" fill="#1F3A33" >opens check-out scan</text>
+<rect x="1580" y="100" width="290" height="120" rx="12" fill="#E3F1EB" stroke="#0E6B5C" stroke-width="2"/>
+<text x="1725" y="147" text-anchor="middle" font-size="14" fill="#1F3A33" font-weight="700">DAY COMPLETE</text>
+<text x="1725" y="164" text-anchor="middle" font-size="14" fill="#1F3A33" >worked time, visits,</text>
+<text x="1725" y="181" text-anchor="middle" font-size="14" fill="#1F3A33" >outside time, note + mood</text>
+<path d="M210,160 L270,160" fill="none" stroke="#0E6B5C" stroke-width="2.4"  marker-end="url(#a)"/>
+<rect x="211" y="148" width="57" height="18" fill="#F7F6F2"/>
+<text x="240" y="161" font-size="12" fill="#0E6B5C" text-anchor="middle" font-weight="700">login ok</text>
+<path d="M530,160 L600,160" fill="none" stroke="#0E6B5C" stroke-width="2.4"  marker-end="url(#a)"/>
+<rect x="536" y="148" width="57" height="18" fill="#F7F6F2"/>
+<text x="565" y="161" font-size="12" fill="#0E6B5C" text-anchor="middle" font-weight="700">Check In</text>
+<path d="M860,160 L930,160" fill="none" stroke="#0E6B5C" stroke-width="2.4"  marker-end="url(#a)"/>
+<rect x="869" y="148" width="50" height="18" fill="#F7F6F2"/>
+<text x="895" y="161" font-size="12" fill="#0E6B5C" text-anchor="middle" font-weight="700">success</text>
+<path d="M1220,160 L1290,160" fill="none" stroke="#B91C1C" stroke-width="2.4"  marker-end="url(#r)"/>
+<path d="M1510,160 L1580,160" fill="none" stroke="#0E6B5C" stroke-width="2.4"  marker-end="url(#a)"/>
+<rect x="1505" y="148" width="79" height="18" fill="#F7F6F2"/>
+<text x="1545" y="161" font-size="12" fill="#0E6B5C" text-anchor="middle" font-weight="700">checked out</text>
+<circle cx="40" cy="90" r="13" fill="#0E6B5C"/><text x="40" y="95" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">1</text>
+<circle cx="270" cy="90" r="13" fill="#0E6B5C"/><text x="270" y="95" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">2</text>
+<circle cx="600" cy="90" r="13" fill="#0E6B5C"/><text x="600" y="95" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">3</text>
+<circle cx="930" cy="90" r="13" fill="#0E6B5C"/><text x="930" y="95" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">4</text>
+<circle cx="1290" cy="90" r="13" fill="#0E6B5C"/><text x="1290" y="95" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">5</text>
+<circle cx="1580" cy="90" r="13" fill="#0E6B5C"/><text x="1580" y="95" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">6</text>
+<path d="M1725,220 L1725,270 L400,270 L400,220" fill="none" stroke="#0E6B5C" stroke-width="2.4" stroke-dasharray="7 5" marker-end="url(#a)"/>
+<rect x="1180" y="256" width="230" height="22" fill="#F7F6F2"/>
+<text x="1295" y="272" font-size="13" fill="#0E6B5C" text-anchor="middle" font-weight="700">next day / check in again</text>
+<text x="270" y="318" font-size="14" fill="#0E6B5C" text-anchor="start" font-weight="700">From Home (top bar and bottom tabs)</text>
+<rect x="300" y="335" width="300" height="62" rx="12" fill="#FFF6E5" stroke="#B46B00" stroke-width="2"/>
+<text x="450" y="362" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">QUICK UPDATE SHEET</text>
+<text x="450" y="377" text-anchor="middle" font-size="12" fill="#1F3A33" >Late / WFH / Cant come / Leave (+ voice)</text>
+<line x1="270" y1="366" x2="300" y2="366" stroke="#0E6B5C" stroke-width="2.4"/>
+<rect x="300" y="409" width="300" height="62" rx="12" fill="#fff" stroke="#2F7CF6" stroke-width="2"/>
+<text x="450" y="436" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">MAPS app</text>
+<text x="450" y="451" text-anchor="middle" font-size="12" fill="#1F3A33" >View on Map: pin at live location</text>
+<line x1="270" y1="440" x2="300" y2="440" stroke="#0E6B5C" stroke-width="2.4"/>
+<rect x="300" y="483" width="300" height="62" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/>
+<text x="450" y="510" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">MY DAY</text>
+<text x="450" y="525" text-anchor="middle" font-size="12" fill="#1F3A33" >punches and breaks</text>
+<line x1="270" y1="514" x2="300" y2="514" stroke="#0E6B5C" stroke-width="2.4"/>
+<rect x="300" y="557" width="300" height="62" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/>
+<text x="450" y="584" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">RECORDS</text>
+<text x="450" y="599" text-anchor="middle" font-size="12" fill="#1F3A33" >month, leave balance, requests, missed punch</text>
+<line x1="270" y1="588" x2="300" y2="588" stroke="#0E6B5C" stroke-width="2.4"/>
+<rect x="300" y="631" width="300" height="62" rx="12" fill="#fff" stroke="#7C3AED" stroke-width="2"/>
+<text x="450" y="658" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">ANNOUNCEMENTS</text>
+<text x="450" y="673" text-anchor="middle" font-size="12" fill="#1F3A33" >list and acknowledge (bell icon)</text>
+<line x1="270" y1="662" x2="300" y2="662" stroke="#0E6B5C" stroke-width="2.4"/>
+<rect x="300" y="705" width="300" height="62" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/>
+<text x="450" y="732" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">PROFILE</text>
+<text x="450" y="747" text-anchor="middle" font-size="12" fill="#1F3A33" >face, permissions, language, logout</text>
+<line x1="270" y1="736" x2="300" y2="736" stroke="#0E6B5C" stroke-width="2.4"/>
+<line x1="270" y1="220" x2="270" y2="736" stroke="#0E6B5C" stroke-width="2.4"/>
+<text x="660" y="318" font-size="14" fill="#B91C1C" text-anchor="start" font-weight="700">From Capture (exceptions)</text>
+<rect x="660" y="335" width="300" height="90" rx="12" fill="#fff" stroke="#B91C1C" stroke-width="2"/>
+<text x="810" y="369" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">Face fails 3 times</text>
+<text x="810" y="384" text-anchor="middle" font-size="12" fill="#1F3A33" >&quot;Check in without face scan?&quot;</text>
+<text x="810" y="399" text-anchor="middle" font-size="12" fill="#1F3A33" >Yes -&gt; punch saved + manual request</text>
+<rect x="660" y="440" width="300" height="90" rx="12" fill="#fff" stroke="#B46B00" stroke-width="2"/>
+<text x="810" y="474" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">No internet</text>
+<text x="810" y="489" text-anchor="middle" font-size="12" fill="#1F3A33" >saved as Pending, syncs later</text>
+<text x="810" y="504" text-anchor="middle" font-size="12" fill="#1F3A33" >&quot;Synced&quot; toast, Pending note clears</text>
+<rect x="660" y="545" width="300" height="90" rx="12" fill="#fff" stroke="#B91C1C" stroke-width="2"/>
+<text x="810" y="586" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">No GPS / no camera permission</text>
+<text x="810" y="601" text-anchor="middle" font-size="12" fill="#1F3A33" >prompt to allow; punch not saved</text>
+<line x1="660" y1="220" x2="640" y2="220" stroke="#B91C1C" stroke-width="2.4"/>
+<line x1="640" y1="220" x2="640" y2="590" stroke="#B91C1C" stroke-width="2.4"/>
+<line x1="640" y1="380" x2="660" y2="380" stroke="#B91C1C" stroke-width="2.4"/>
+<line x1="640" y1="485" x2="660" y2="485" stroke="#B91C1C" stroke-width="2.4"/>
+<line x1="640" y1="590" x2="660" y2="590" stroke="#B91C1C" stroke-width="2.4"/>
+<text x="1020" y="318" font-size="14" fill="#7C3AED" text-anchor="start" font-weight="700">While checked in</text>
+<rect x="1050" y="335" width="300" height="62" rx="12" fill="#fff" stroke="#7C3AED" stroke-width="2"/>
+<text x="1200" y="362" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">Add note</text>
+<text x="1200" y="377" text-anchor="middle" font-size="12" fill="#1F3A33" >text saved to the visit</text>
+<line x1="1020" y1="366" x2="1050" y2="366" stroke="#7C3AED" stroke-width="2.4"/>
+<rect x="1050" y="409" width="300" height="62" rx="12" fill="#fff" stroke="#7C3AED" stroke-width="2"/>
+<text x="1200" y="436" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">Photo</text>
+<text x="1200" y="451" text-anchor="middle" font-size="12" fill="#1F3A33" >camera, uploaded to the visit</text>
+<line x1="1020" y1="440" x2="1050" y2="440" stroke="#7C3AED" stroke-width="2.4"/>
+<rect x="1050" y="483" width="300" height="62" rx="12" fill="#fff" stroke="#7C3AED" stroke-width="2"/>
+<text x="1200" y="510" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">Voice note</text>
+<text x="1200" y="525" text-anchor="middle" font-size="12" fill="#1F3A33" >up to 60 seconds</text>
+<line x1="1020" y1="514" x2="1050" y2="514" stroke="#7C3AED" stroke-width="2.4"/>
+<rect x="1050" y="557" width="300" height="62" rx="12" fill="#fff" stroke="#7C3AED" stroke-width="2"/>
+<text x="1200" y="584" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">Details</text>
+<text x="1200" y="599" text-anchor="middle" font-size="12" fill="#1F3A33" >customer, task, today&#x27;s notes</text>
+<line x1="1020" y1="588" x2="1050" y2="588" stroke="#7C3AED" stroke-width="2.4"/>
+<rect x="1050" y="631" width="300" height="62" rx="12" fill="#fff" stroke="#2F7CF6" stroke-width="2"/>
+<text x="1200" y="658" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">TODAY&#x27;S PLAN</text>
+<text x="1200" y="673" text-anchor="middle" font-size="12" fill="#1F3A33" >Done / Now / next stops, See all</text>
+<line x1="1020" y1="662" x2="1050" y2="662" stroke="#7C3AED" stroke-width="2.4"/>
+<line x1="1020" y1="220" x2="1020" y2="662" stroke="#7C3AED" stroke-width="2.4"/>
+<rect x="1420" y="335" width="450" height="130" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/>
+<text x="1645" y="381" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">After check-out</text>
+<text x="1645" y="396" text-anchor="middle" font-size="12" fill="#1F3A33" >Home shows DAY COMPLETE (not &quot;Not checked in&quot;)</text>
+<text x="1645" y="411" text-anchor="middle" font-size="12" fill="#1F3A33" >Save note + mood: &quot;Saved&quot; toast</text>
+<text x="1645" y="426" text-anchor="middle" font-size="12" fill="#1F3A33" >Visit timer is cleared</text>
+<rect x="1420" y="485" width="450" height="130" rx="12" fill="#FFF6E5" stroke="#B46B00" stroke-width="2"/>
+<text x="1645" y="539" text-anchor="middle" font-size="12" fill="#1F3A33" font-weight="700">Manager side (web)</text>
+<text x="1645" y="554" text-anchor="middle" font-size="12" fill="#1F3A33" >Approve / reject requests, correction, announcements,</text>
+<text x="1645" y="569" text-anchor="middle" font-size="12" fill="#1F3A33" >daily line + thought, visit plans</text>
+<rect x="40" y="800" width="1830" height="350" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/>
+<text x="955" y="979" text-anchor="middle" font-size="14" fill="#1F3A33" font-weight="700"></text>
+<text x="70" y="832" font-size="17" fill="#0E6B5C" text-anchor="start" font-weight="700">Step by step</text>
+<text x="70" y="868" font-size="14" fill="#1F3A33" text-anchor="start" >1   Login with user and password. Allow camera, location and notification permissions (Profile &gt; Permissions shows what is missing).</text>
+<text x="70" y="902" font-size="14" fill="#1F3A33" text-anchor="start" >2   Home opens: check-in card with live location, four quick tiles, announcements, thought of the day, weekly stats.</text>
+<text x="70" y="936" font-size="14" fill="#1F3A33" text-anchor="start" >3   Tap Check In: Capture opens, look at the camera. On success the app returns to Home automatically.</text>
+<text x="70" y="970" font-size="14" fill="#1F3A33" text-anchor="start" >4   Home becomes &quot;checked in&quot;: header shows the elapsed time, visit card has a live timer, plus Add note / Photo / Voice note / Details and Today&#x27;s plan.</text>
+<text x="70" y="1004" font-size="14" fill="#1F3A33" text-anchor="start" >5   Late, working from home, cannot come or need leave? Tap a tile, fill the sheet and Send. The manager decides on the web; Undo is possible until then.</text>
+<text x="70" y="1038" font-size="14" fill="#1F3A33" text-anchor="start" >6   Tap End visit and scan the face to check out. Day complete shows worked time, visits and time outside the site. Add a note and mood, then Save.</text>
+<text x="70" y="1072" font-size="14" fill="#1F3A33" text-anchor="start" >7   Records shows the month (days, hours, overtime, late days), leave balance and your requests. A missed check-out can be corrected in about 10 seconds.</text>
+<text x="70" y="1106" font-size="14" fill="#1F3A33" text-anchor="start" >8   Profile: register or update face, language (EN / MR / HI / GU), permissions, auto submit, diagnostics, log out.</text>
+<text x="40" y="1175" font-size="13" fill="#1F3A33" text-anchor="start" >Teal arrows = normal flow   Red = exception / check-out   Orange = request or offline   Purple = visit tools</text></svg>
