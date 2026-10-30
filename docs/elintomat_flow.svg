@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1150" viewBox="0 0 1800 1150" font-family="Segoe UI, Arial, sans-serif">
+<defs>
+<marker id="a" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#0E6B5C"/></marker>
+<marker id="g" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8a6d1d"/></marker>
+</defs>
+<rect width="1800" height="1150" fill="#F7F6F2"/>
+<text x="900" y="48" text-anchor="middle" font-size="30" font-weight="700" fill="#1F3A33">ElintOmAT – Overall Flow (Android App + Web / Backend)</text>
+
+<!-- column titles -->
+<text x="30" y="95" font-size="20" font-weight="700" fill="#0E6B5C">1. ANDROID APP (Kotlin / Compose)</text>
+<text x="640" y="95" font-size="20" font-weight="700" fill="#0E6B5C">2. API  (CodeIgniter – Attendance_api)</text>
+<text x="1150" y="95" font-size="20" font-weight="700" fill="#0E6B5C">3. DATABASE (sma_*)</text>
+<text x="1470" y="95" font-size="20" font-weight="700" fill="#0E6B5C">4. WEB (HR / Manager)</text>
+
+<!-- ANDROID -->
+<g font-size="15" fill="#1F3A33">
+<rect x="30" y="110" width="560" height="120" rx="16" fill="#fff" stroke="#CBE4DC" stroke-width="2"/>
+<text x="50" y="140" font-weight="700" font-size="17">Login / Face Enrollment</text>
+<text x="50" y="166">Login → device token  •  Register face (face-api.js, 128-d)</text>
+<text x="50" y="190">Language (EN / मराठी / हिंदी / ગુજરાતી)  •  Permissions</text>
+<text x="50" y="214" fill="#6b7a75">Token stored in SharedPreferences</text>
+
+<rect x="30" y="260" width="560" height="190" rx="16" fill="#fff" stroke="#CBE4DC" stroke-width="2"/>
+<text x="50" y="290" font-weight="700" font-size="17">HOME  (greeting • check-in card • announcements • thought • stats)</text>
+<text x="50" y="318">• Quick tiles: Running late • Work from home • Can't come • Take leave</text>
+<text x="50" y="342">• Request status line: Sent / Pending (Undo) / Approved / Rejected</text>
+<text x="50" y="366">• Announcements pager (Acknowledge) • Today's thought (♥)</text>
+<text x="50" y="390">• Stats: days this week • on-time streak • month %</text>
+<text x="50" y="414">• Missed punch card → 10-sec correction request</text>
+<text x="50" y="436" fill="#6b7a75">Bell → announcements • Calendar → Records • View on Map → live GPS</text>
+
+<rect x="30" y="480" width="560" height="210" rx="16" fill="#E7F2EE" stroke="#0E6B5C" stroke-width="2"/>
+<text x="50" y="510" font-weight="700" font-size="17">CHECK-IN / CHECK-OUT  (Capture)</text>
+<text x="50" y="538">1) GPS fix + site match (unknown site is saved)</text>
+<text x="50" y="562">2) Camera → face scan (descriptor)</text>
+<text x="50" y="586">3) Face fails ×3 → "Check in without face scan" (non-biometric)</text>
+<text x="50" y="610">4) Offline → saved as Pending → auto-sync → "Synced" toast</text>
+<text x="50" y="634">5) Success → haptic + Home updates (timer, visits, End visit)</text>
+<text x="50" y="658">6) End of day → Day complete (worked time, note, mood, Save)</text>
+<text x="50" y="680" fill="#6b7a75">Approved WFH day → marked WFH automatically</text>
+
+<rect x="30" y="720" width="270" height="130" rx="16" fill="#fff" stroke="#CBE4DC" stroke-width="2"/>
+<text x="46" y="750" font-weight="700" font-size="17">MY DAY</text>
+<text x="46" y="776">Punches • breaks • timeline</text>
+<text x="46" y="800">Notes of the day</text>
+<rect x="320" y="720" width="270" height="130" rx="16" fill="#fff" stroke="#CBE4DC" stroke-width="2"/>
+<text x="336" y="750" font-weight="700" font-size="17">RECORDS</text>
+<text x="336" y="776">Month view • totals</text>
+<text x="336" y="800">Leave balance • my requests</text>
+
+<rect x="30" y="880" width="560" height="110" rx="16" fill="#fff" stroke="#CBE4DC" stroke-width="2"/>
+<text x="50" y="910" font-weight="700" font-size="17">PROFILE  +  BACKGROUND</text>
+<text x="50" y="936">Register face • Permissions • Language • Auto submit • Logs • Logout</text>
+<text x="50" y="960">AreaTrackService (left-site nudge) • ReminderScheduler (alarms:</text>
+<text x="50" y="980">check-in reminder, 30-min poll for approvals / manager inbox)</text>
+</g>
+
+<!-- API -->
+<g font-size="14" fill="#1F3A33">
+<rect x="640" y="110" width="440" height="880" rx="16" fill="#fff" stroke="#CBE4DC" stroke-width="2"/>
+<text x="660" y="140" font-weight="700" font-size="17">Auth: HMAC token {uid, exp}</text>
+<text x="660" y="162" fill="#6b7a75">login • face_register • store (punch)</text>
+<rect x="660" y="180" width="400" height="120" rx="10" fill="#E7F2EE"/>
+<text x="672" y="204" font-weight="700">store  (check-in / out)</text>
+<text x="672" y="226">face match 1:N / token user • site derive</text>
+<text x="672" y="246">WFH approved → "WFH" • non_biometric=1 (token)</text>
+<text x="672" y="266">non-biometric → creates 'manual' request</text>
+<text x="672" y="286">writes sma_attendance</text>
+<text x="660" y="332" font-weight="700">home_summary</text>
+<text x="660" y="352">today state • shift • request • announcements • stats • thought</text>
+<text x="660" y="384" font-weight="700">quick_update / quick_update_undo</text>
+<text x="660" y="404">late • wfh • cant • leave (+ voice note m4a) → manager</text>
+<text x="660" y="436" font-weight="700">announcements / announcement_ack</text>
+<text x="660" y="468" font-weight="700">day_wrapup  (note + mood)</text>
+<text x="660" y="500" font-weight="700">records  •  my_day</text>
+<text x="660" y="532" font-weight="700">fix_missed_punch  (correction request)</text>
+<text x="660" y="564" font-weight="700">manager_inbox  (pending count for push)</text>
+<rect x="660" y="600" width="400" height="150" rx="10" fill="#FFF7E0" stroke="#e5cf85"/>
+<text x="672" y="626" font-weight="700" fill="#8a6d1d">Request status flow</text>
+<text x="672" y="650" fill="#8a6d1d">sent → pending → approved / rejected</text>
+<text x="672" y="672" fill="#8a6d1d">Undo → undone • Dismiss → hidden</text>
+<text x="672" y="694" fill="#8a6d1d">approve leave → balance deducted</text>
+<text x="672" y="716" fill="#8a6d1d">approve correction → check-out applied</text>
+<text x="672" y="738" fill="#8a6d1d">reject → employee sees note</text>
+<text x="660" y="790" font-weight="700">Models</text>
+<text x="660" y="812">Attendance_model (punch, face)</text>
+<text x="660" y="832">Attendance_home_model (requests, balances,</text>
+<text x="660" y="852">shifts, announcements, stats, notes)</text>
+<text x="660" y="884" fill="#6b7a75">Tables created lazily by ensure_tables()</text>
+</g>
+
+<!-- DB -->
+<g font-size="14" fill="#1F3A33">
+<rect x="1130" y="110" width="290" height="880" rx="16" fill="#fff" stroke="#CBE4DC" stroke-width="2"/>
+<text x="1150" y="145" font-weight="700">sma_attendance</text><text x="1150" y="165" fill="#6b7a75">check-in/out, location, system_log</text>
+<text x="1150" y="205" font-weight="700">sma_user_faces</text><text x="1150" y="225" fill="#6b7a75">128-d descriptors</text>
+<text x="1150" y="265" font-weight="700">sma_human_resources_master</text><text x="1150" y="285" fill="#6b7a75">user, reporting_manager</text>
+<text x="1150" y="325" font-weight="700">sma_attendance_requests</text><text x="1150" y="345" fill="#6b7a75">late/wfh/cant/leave/correction/manual</text>
+<text x="1150" y="385" font-weight="700">sma_leave_balances</text>
+<text x="1150" y="425" font-weight="700">sma_attendance_shifts</text>
+<text x="1150" y="465" font-weight="700">sma_announcements</text>
+<text x="1150" y="485" fill="#6b7a75">+ announcement_reads</text>
+<text x="1150" y="525" font-weight="700">sma_attendance_day_notes</text>
+<text x="1150" y="545" fill="#6b7a75">note + mood</text>
+<text x="1150" y="585" font-weight="700">assets/uploads/</text>
+<text x="1150" y="605" fill="#6b7a75">attendance_voice/*.m4a</text>
+</g>
+
+<!-- WEB -->
+<g font-size="14" fill="#1F3A33">
+<rect x="1470" y="110" width="300" height="880" rx="16" fill="#fff" stroke="#CBE4DC" stroke-width="2"/>
+<text x="1490" y="140" font-weight="700" font-size="17">Human_resources controller</text>
+<rect x="1490" y="160" width="260" height="220" rx="10" fill="#E7F2EE"/>
+<text x="1502" y="186" font-weight="700">Attendance requests screen</text>
+<text x="1502" y="210">• List: pending / decided</text>
+<text x="1502" y="232">• Approve / Reject + note</text>
+<text x="1502" y="254">• Voice note player</text>
+<text x="1502" y="276">• Kinds: late, WFH, can't come,</text>
+<text x="1502" y="298">  leave, correction, manual</text>
+<text x="1502" y="324" fill="#6b7a75">attendance_requests</text>
+<text x="1502" y="346" fill="#6b7a75">decide_attendance_request</text>
+<rect x="1490" y="400" width="260" height="130" rx="10" fill="#E7F2EE"/>
+<text x="1502" y="426" font-weight="700">Announcements</text>
+<text x="1502" y="450">• Create / edit / hide</text>
+<text x="1502" y="472">• Needs-acknowledge option</text>
+<text x="1502" y="494" fill="#6b7a75">save_announcement</text>
+<text x="1502" y="514" fill="#6b7a75">toggle_announcement</text>
+<text x="1490" y="570" fill="#6b7a75">Menu: Admin access menu →</text>
+<text x="1490" y="590" fill="#6b7a75">Attendance requests</text>
+</g>
+
+<!-- arrows android -> api -->
+<g stroke="#0E6B5C" stroke-width="2.5" fill="none" marker-end="url(#a)">
+<path d="M590 170 L640 170"/>
+<path d="M590 330 L640 360"/>
+<path d="M590 570 L640 240"/>
+<path d="M590 780 L640 510"/>
+<path d="M590 935 L640 570"/>
+<path d="M1080 240 L1130 160"/>
+<path d="M1080 410 L1130 340"/>
+<path d="M1080 500 L1130 480"/>
+<path d="M1420 270 L1470 270" stroke-dasharray="0"/>
+</g>
+<g stroke="#8a6d1d" stroke-width="2.5" fill="none" marker-end="url(#g)">
+<path d="M1470 330 L1420 340" stroke-dasharray="7 5"/>
+<path d="M1470 460 L1420 470" stroke-dasharray="7 5"/>
+<path d="M640 700 L590 360" stroke-dasharray="7 5"/>
+</g>
+
+<!-- bottom: end-to-end flow -->
+<text x="30" y="1030" font-size="20" font-weight="700" fill="#0E6B5C">End-to-end: Leave / WFH request</text>
+<g font-size="14" font-weight="600">
+<rect x="30" y="1045" width="230" height="70" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/><text x="145" y="1075" text-anchor="middle">Employee taps tile</text><text x="145" y="1095" text-anchor="middle">(Home) → Send</text>
+<rect x="330" y="1045" width="230" height="70" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/><text x="445" y="1075" text-anchor="middle">API quick_update</text><text x="445" y="1095" text-anchor="middle">status = sent</text>
+<rect x="630" y="1045" width="230" height="70" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/><text x="745" y="1075" text-anchor="middle">Manager notified</text><text x="745" y="1095" text-anchor="middle">push / web inbox</text>
+<rect x="930" y="1045" width="230" height="70" rx="12" fill="#fff" stroke="#8a6d1d" stroke-width="2"/><text x="1045" y="1075" text-anchor="middle">Web: Approve / Reject</text><text x="1045" y="1095" text-anchor="middle">(+ note)</text>
+<rect x="1230" y="1045" width="230" height="70" rx="12" fill="#fff" stroke="#0E6B5C" stroke-width="2"/><text x="1345" y="1075" text-anchor="middle">Status updated</text><text x="1345" y="1095" text-anchor="middle">balance / WFH day</text>
+<rect x="1530" y="1045" width="240" height="70" rx="12" fill="#E7F2EE" stroke="#0E6B5C" stroke-width="2"/><text x="1650" y="1075" text-anchor="middle">Employee sees</text><text x="1650" y="1095" text-anchor="middle">Approved ✓ + notification</text>
+</g>
+<g stroke="#0E6B5C" stroke-width="2.5" marker-end="url(#a)">
+<path d="M260 1080 L330 1080"/><path d="M560 1080 L630 1080"/><path d="M860 1080 L930 1080"/><path d="M1160 1080 L1230 1080"/><path d="M1460 1080 L1530 1080"/>
+</g>
+</svg>
