@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home screen background scene (morning). Draw full-width at the top of the screen,
+     behind the content, with ContentScale.FillWidth. Height 360dp at 390dp width. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="390dp" android:height="360dp"
+    android:viewportWidth="390" android:viewportHeight="360">
+    <path android:pathData="M0,0h390v360h-390z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="0" android:endX="0" android:endY="360">
+                <item android:offset="0" android:color="#FFE3F1EC" />
+                <item android:offset="0.55" android:color="#FFF6F1E4" />
+                <item android:offset="1" android:color="#FFF7F6F2" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <path android:pathData="M278,98a44,44 0 1,0 88,0a44,44 0 1,0 -88,0" android:fillColor="#FFFCE6BE" android:fillAlpha="0.35" />
+    <path android:pathData="M294,98a28,28 0 1,0 56,0a28,28 0 1,0 -56,0" android:fillColor="#FFFCE6BE" />
+    <path android:pathData="M0,200L52,160L96,186L160,126L214,170L262,146L300,162L352,118L390,150L390,360L0,360Z" android:fillColor="#FFD8E9E2" />
+    <path android:pathData="M150,136h20v90h-20z" android:fillColor="#FFC2DCD2" />
+    <path android:pathData="M174,114h16v112h-16z" android:fillColor="#FFC2DCD2" />
+    <path android:pathData="M176,104h2v12h-2z" android:fillColor="#FFC2DCD2" />
+    <path android:pathData="M194,152h24v74h-24z" android:fillColor="#FFC2DCD2" />
+    <path android:pathData="M222,126h18v100h-18z" android:fillColor="#FFC2DCD2" />
+    <path android:pathData="M244,162h22v64h-22z" android:fillColor="#FFC2DCD2" />
+    <path android:pathData="M270,136h34v90h-34z" android:fillColor="#FFC2DCD2" />
+    <path android:pathData="M308,156h18v70h-18z" android:fillColor="#FFC2DCD2" />
+    <path android:pathData="M275,144h4v5h-4z" android:fillColor="#FFD8E9E2" />
+    <path android:pathData="M283,144h4v5h-4z" android:fillColor="#FFD8E9E2" />
+    <path android:pathData="M291,144h4v5h-4z" android:fillColor="#FFD8E9E2" />
+    <path android:pathData="M275,156h4v5h-4z" android:fillColor="#FFD8E9E2" />
+    <path android:pathData="M283,156h4v5h-4z" android:fillColor="#FFD8E9E2" />
+    <path android:pathData="M291,156h4v5h-4z" android:fillColor="#FFD8E9E2" />
+    <path android:pathData="M178,124h3v5h-3z" android:fillColor="#FFD8E9E2" />
+    <path android:pathData="M184,124h3v5h-3z" android:fillColor="#FFD8E9E2" />
+    <path android:pathData="M178,136h3v5h-3z" android:fillColor="#FFD8E9E2" />
+    <path android:pathData="M184,136h3v5h-3z" android:fillColor="#FFD8E9E2" />
+    <path android:pathData="M0,232C70,206 130,240 200,220C270,200 330,228 390,212L390,360L0,360Z" android:fillColor="#FFB9D7CB" />
+    <path android:pathData="M38,206h3v18h-3z" android:fillColor="#FF9EC6B7" />
+    <path android:pathData="M27.5,198a12,12 0 1,0 24,0a12,12 0 1,0 -24,0" android:fillColor="#FF9EC6B7" />
+    <path android:pathData="M350,198h3v20h-3z" android:fillColor="#FF9EC6B7" />
+    <path android:pathData="M338.5,190a13,13 0 1,0 26,0a13,13 0 1,0 -26,0" android:fillColor="#FF9EC6B7" />
+    <path android:pathData="M0,220h390v140h-390z">
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="220" android:endX="0" android:endY="360">
+                <item android:offset="0" android:color="#00F7F6F2" />
+                <item android:offset="1" android:color="#FFF7F6F2" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

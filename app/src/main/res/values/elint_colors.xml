@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Check-in button, selected chips, links, active nav -->
+    <color name="elint_brand_primary">#FF0E6B5C</color>
+    <!-- Pressed / hover state of primary -->
+    <color name="elint_brand_primary_pressed">#FF0A4F44</color>
+    <!-- Done-step circle, light teal fills -->
+    <color name="elint_brand_primary_container">#FFD7E9E4</color>
+    <!-- Ring around Check-in button, subtitle on button -->
+    <color name="elint_brand_primary_ring">#FFE0F0EB</color>
+    <!-- 1dp outer edge of the check-in ring -->
+    <color name="elint_brand_primary_ring_edge">#FFCBE4DC</color>
+    <!-- Today's thought card -->
+    <color name="elint_brand_tint_surface">#FFEEF5F2</color>
+    <!-- Location pill inside check-in card -->
+    <color name="elint_brand_tint_pill">#FFF1F7F5</color>
+    <!-- Daily line and quote text (Fraunces) -->
+    <color name="elint_heading_serif">#FF1F3A33</color>
+    <!-- Screen background -->
+    <color name="elint_background">#FFF7F6F2</color>
+    <!-- Cards, sheet, nav bar, round icon buttons -->
+    <color name="elint_surface">#FFFFFFFF</color>
+    <!-- Unselected mood chips, close button -->
+    <color name="elint_surface_subtle">#FFF4F3EF</color>
+    <!-- Text fields -->
+    <color name="elint_input_background">#FFFAFAF8</color>
+    <!-- Chip and input borders -->
+    <color name="elint_outline">#FFDCDAD3</color>
+    <!-- Nav top border, ring track -->
+    <color name="elint_divider">#FFE6E4DE</color>
+    <!-- Main text and icons -->
+    <color name="elint_text_primary">#FF14161A</color>
+    <!-- Greeting line, status text -->
+    <color name="elint_text_secondary">#FF3F454D</color>
+    <!-- Dates, captions, inactive nav -->
+    <color name="elint_text_muted">#FF4B5159</color>
+    <!-- Not checked in dot -->
+    <color name="elint_status_neutral_dot">#FF9AA0A8</color>
+    <!-- Checked-in dot, approved -->
+    <color name="elint_status_success">#FF16A34A</color>
+    <!-- Red dot on bell -->
+    <color name="elint_unread_dot">#FFD9480F</color>
+    <!-- Announcement card background -->
+    <color name="elint_amber_surface">#FFFFF6E6</color>
+    <!-- Announcement card border -->
+    <color name="elint_amber_border">#FFF6E2BF</color>
+    <!-- Sent-request status line, streak icon circle -->
+    <color name="elint_amber_soft">#FFFFF4E0</color>
+    <!-- Announcement text, Running late label, status line text -->
+    <color name="elint_amber_text">#FF7A4A00</color>
+    <!-- Running late icon, streak flame -->
+    <color name="elint_amber_icon">#FFB45309</color>
+    <!-- Running late tile border -->
+    <color name="elint_amber_tile_border">#FFE3D9C6</color>
+    <!-- WFH tile label -->
+    <color name="elint_wfh_text">#FF5B21B6</color>
+    <!-- WFH icon -->
+    <color name="elint_wfh_icon">#FF6D28D9</color>
+    <!-- WFH tile border -->
+    <color name="elint_wfh_tile_border">#FFDDD3F3</color>
+    <!-- WFH info box in sheet -->
+    <color name="elint_wfh_info_surface">#FFF3EFFC</color>
+    <!-- WFH info box text -->
+    <color name="elint_wfh_info_text">#FF3B1D7A</color>
+    <!-- Can't come tile label -->
+    <color name="elint_absent_text">#FF9F1D1D</color>
+    <!-- Can't come icon, error -->
+    <color name="elint_absent_icon">#FFB91C1C</color>
+    <!-- Can't come tile border -->
+    <color name="elint_absent_tile_border">#FFE8CFCB</color>
+    <!-- Take leave tile label -->
+    <color name="elint_leave_text">#FF1E40AF</color>
+    <!-- Take leave icon -->
+    <color name="elint_leave_icon">#FF1D4ED8</color>
+    <!-- Take leave tile border -->
+    <color name="elint_leave_tile_border">#FFCFE0EF</color>
+    <!-- Background scene -->
+    <color name="elint_scene_sky_top">#FFE3F1EC</color>
+    <!-- Background scene -->
+    <color name="elint_scene_sky_mid">#FFF6F1E4</color>
+    <!-- Background scene -->
+    <color name="elint_scene_sun">#FFFCE6BE</color>
+    <!-- Background scene -->
+    <color name="elint_scene_mountains">#FFD8E9E2</color>
+    <!-- Background scene -->
+    <color name="elint_scene_buildings">#FFC2DCD2</color>
+    <!-- Background scene -->
+    <color name="elint_scene_hills">#FFB9D7CB</color>
+    <!-- Background scene -->
+    <color name="elint_scene_trees">#FF9EC6B7</color>
+    <!-- Dim behind bottom sheet (#14161A at 45%) -->
+    <color name="elint_scrim">#7314161A</color>
+</resources>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="elint_screen_padding_horizontal">20dp</dimen>
+    <dimen name="elint_screen_padding_top">18dp</dimen>
+    <dimen name="elint_section_gap">10dp</dimen>
+    <dimen name="elint_card_padding">16dp</dimen>
+    <dimen name="elint_card_padding_compact">12dp</dimen>
+    <dimen name="elint_sheet_padding_horizontal">20dp</dimen>
+    <dimen name="elint_sheet_padding_bottom">28dp</dimen>
+    <dimen name="elint_sheet_handle_width">40dp</dimen>
+    <dimen name="elint_sheet_handle_height">4dp</dimen>
+    <dimen name="elint_avatar_size">48dp</dimen>
+    <dimen name="elint_avatar_ring">2dp</dimen>
+    <dimen name="elint_icon_button_size">48dp</dimen>
+    <dimen name="elint_quick_tile_height">58dp</dimen>
+    <dimen name="elint_quick_tile_gap">8dp</dimen>
+    <dimen name="elint_sheet_option_height">72dp</dimen>
+    <dimen name="elint_checkin_button_size">132dp</dimen>
+    <dimen name="elint_checkin_button_ring">8dp</dimen>
+    <dimen name="elint_location_pill_height">34dp</dimen>
+    <dimen name="elint_chip_height">40dp</dimen>
+    <dimen name="elint_chip_padding_horizontal">14dp</dimen>
+    <dimen name="elint_input_height">48dp</dimen>
+    <dimen name="elint_primary_button_height">52dp</dimen>
+    <dimen name="elint_bottom_nav_height">76dp</dimen>
+    <dimen name="elint_min_touch_target">48dp</dimen>
+    <dimen name="elint_icon_small">16dp</dimen>
+    <dimen name="elint_icon_medium">20dp</dimen>
+    <dimen name="elint_icon_large">22dp</dimen>
+    <dimen name="elint_icon_checkin">32dp</dimen>
+    <dimen name="elint_background_scene_height">360dp</dimen>
+</resources>

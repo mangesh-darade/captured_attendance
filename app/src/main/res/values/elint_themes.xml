@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Window theme for the ElintOmAT companion. Compose screens use ElintTheme. -->
+    <style name="Theme.ElintOmAT" parent="android:Theme.DeviceDefault.Light.NoActionBar">
+        <item name="android:colorBackground">@color/elint_background</item>
+        <item name="android:windowBackground">@color/elint_background</item>
+        <item name="android:colorPrimary">@color/elint_brand_primary</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/elint_surface</item>
+    </style>
+</resources>
