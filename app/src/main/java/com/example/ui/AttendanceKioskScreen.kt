@@ -101,6 +101,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -125,12 +126,14 @@ import android.content.res.Configuration
 import android.location.LocationManager
 import android.net.Uri
 import android.provider.Settings
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalConfiguration
 import java.util.Locale
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -307,7 +310,9 @@ private fun faceGuideLook(status: String, captured: Boolean, lang: String): Face
 enum class KioskBottomTab {
     HOME,
     CAPTURE,
-    SETTINGS
+    SETTINGS,
+    MYDAY,
+    RECORDS
 }
 
 /**
@@ -327,6 +332,16 @@ fun AttendanceKioskScreen(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    // Live updates: check the server every 6 seconds while the app is on screen (stops in the background).
+    LaunchedEffect(uiState.deviceToken) {
+        if (uiState.deviceToken.isBlank()) return@LaunchedEffect
+        lifecycleOwner.lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+            while (true) {
+                kotlinx.coroutines.delay(6_000L)
+                viewModel.syncLive()
+            }
+        }
+    }
     val haptic = LocalHapticFeedback.current
     var currentTab by rememberSaveable { mutableStateOf(KioskBottomTab.HOME) }
     var showProfile by remember { mutableStateOf(false) }
@@ -409,6 +424,37 @@ fun AttendanceKioskScreen(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { }
 
+    // Face-first: open the scan tab at once when the app starts and the person is not checked in.
+    LaunchedEffect(uiState.openScanRequest) {
+        if (uiState.openScanRequest) {
+            currentTab = KioskBottomTab.CAPTURE
+            viewModel.consumeOpenScan()
+        }
+    }
+
+    // Reminders need the notification permission (Android 13+); ask once after the first home load.
+    var notificationAsked by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(uiState.home != null) {
+        if (uiState.home != null && !notificationAsked && Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationAsked = true
+            areaPermissionLauncher.launch(arrayOf(Manifest.permission.POST_NOTIFICATIONS))
+        }
+    }
+
+    // Vibrate when a punch is accepted.
+    LaunchedEffect(uiState.toast) {
+        if (uiState.toast?.type == ToastType.SUCCESS) {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+
+    // Only an accepted punch (online or saved offline) leaves Capture, not other success toasts such as "Location updated".
+    LaunchedEffect(uiState.punchDone) {
+        if (uiState.punchDone > 0 && currentTab == KioskBottomTab.CAPTURE) currentTab = KioskBottomTab.HOME
+    }
+
     LaunchedEffect(uiState.areaTracking) {
         if (!uiState.areaTracking) return@LaunchedEffect
         val needed = mutableListOf<String>()
@@ -459,9 +505,12 @@ fun AttendanceKioskScreen(
         }
     }
 
+    // The localized context no longer wraps the Activity, so hand the result-registry owner down explicitly.
+    val resultOwner = androidx.activity.compose.LocalActivityResultRegistryOwner.current
     CompositionLocalProvider(
         LocalConfiguration provides configuration,
-        LocalContext provides localizedContext
+        LocalContext provides localizedContext,
+        androidx.activity.compose.LocalActivityResultRegistryOwner provides resultOwner!!
     ) {
         // Embed hidden WebView into the hierarchy so it runs WebGL/Canvas properly
         Box(modifier = Modifier.size(1.dp).alpha(0.001f)) {
@@ -486,8 +535,27 @@ fun AttendanceKioskScreen(
                     .fillMaxWidth()
                     .background(PanelBackground)
             ) {
+                // Same top bar on every main screen (Capture has its own).
+                if ((currentTab == KioskBottomTab.HOME || currentTab == KioskBottomTab.MYDAY || currentTab == KioskBottomTab.RECORDS || currentTab == KioskBottomTab.SETTINGS) &&
+                    !uiState.showTodayAttendance && !uiState.showFaceEnrollment
+                ) {
+                    GreetingRow(
+                        name = uiState.home?.user?.name?.takeIf { it.isNotBlank() } ?: uiState.loggedInUserName,
+                        s = s,
+                        unreadCount = uiState.home?.announcements.orEmpty().count { it.id !in uiState.seenAnnouncementIds },
+                        photoUrl = uiState.home?.user?.photoUrl,
+                        onOpenProfile = { currentTab = KioskBottomTab.SETTINGS },
+                        onCalendar = { currentTab = KioskBottomTab.RECORDS },
+                        onBell = { viewModel.openAnnouncements() },
+                        statusLine = if (currentTab == KioskBottomTab.HOME && (uiState.home?.today?.state == "in" || (uiState.home?.today?.state != "out" && uiState.activeToggle == "OUT")))
+                            s.checkedInFor.replace("{time}", workedText(uiState.home?.today?.workedMinutes ?: 0)) else null,
+                        titleOverride = s.keepGoingName.replace("{name}", (uiState.home?.user?.name?.takeIf { it.isNotBlank() } ?: uiState.loggedInUserName).trim().substringBefore(" "))
+                    )
+                }
                 // 1) Header bar bg #E7EBF1, padding 10x14
-                HeaderBar(
+                val homeFullScreen = (currentTab == KioskBottomTab.HOME || currentTab == KioskBottomTab.MYDAY || currentTab == KioskBottomTab.RECORDS || currentTab == KioskBottomTab.SETTINGS || currentTab == KioskBottomTab.CAPTURE) &&
+                    !uiState.showTodayAttendance && !uiState.showFaceEnrollment
+                if (!homeFullScreen && !(uiState.showFaceEnrollment && uiState.selectedEnrollmentUser != null)) HeaderBar(
                     tenantLogoUrl = uiState.tenantLogoUrl,
                     tenantSiteName = uiState.tenantSiteName,
                     userName = uiState.loggedInUserName,
@@ -552,15 +620,17 @@ fun AttendanceKioskScreen(
                     ) {
                         when (currentTab) {
                             KioskBottomTab.HOME -> {
-                                KioskHomeScreen(
+                                ElintHomeScreen(
                                     uiState = uiState,
+                                    viewModel = viewModel,
                                     currentLanguage = currentLanguage,
-                                    onNavigateToCapture = { currentTab = KioskBottomTab.CAPTURE },
-                                    onOpenHistory = { viewModel.openTodayAttendance() },
-                                    onOpenFaceEnrollment = { viewModel.openFaceEnrollment() },
-                                    onOpenSettings = { currentTab = KioskBottomTab.SETTINGS }
+                                    onCheckIn = { currentTab = KioskBottomTab.CAPTURE },
+                                    onOpenHistory = { currentTab = KioskBottomTab.RECORDS },
+                                    onOpenProfile = { currentTab = KioskBottomTab.SETTINGS }
                                 )
                             }
+                            KioskBottomTab.MYDAY -> ElintMyDayScreen(uiState, viewModel, currentLanguage)
+                            KioskBottomTab.RECORDS -> ElintRecordsScreen(uiState, viewModel, currentLanguage)
                             KioskBottomTab.SETTINGS -> {
                                 KioskSettingsScreen(
                                     uiState = uiState,
@@ -574,7 +644,20 @@ fun AttendanceKioskScreen(
                                 )
                             }
                             KioskBottomTab.CAPTURE -> {
-                                Column(modifier = Modifier.fillMaxSize()) {
+                                Column(modifier = Modifier.fillMaxSize().background(com.example.ui.theme.ElintBackground).statusBarsPadding()) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    ) {
+                                        Box(
+                                            modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.White).clickable { currentTab = KioskBottomTab.HOME },
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null, tint = HomeInk, modifier = Modifier.size(20.dp))
+                                        }
+                                        Text(s.checkInBig, style = com.example.ui.theme.ElintText.sheetTitle, color = HomeInk)
+                                    }
                                     val scrollState = rememberScrollState()
                                     Column(
                                         modifier = Modifier
@@ -616,10 +699,10 @@ fun AttendanceKioskScreen(
 
                 // Card 1: Location & IN / OUT
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = com.example.ui.theme.ElintShapes.card,
                     color = Color.White,
-                    border = BorderStroke(1.dp, CardBorder),
-                    shadowElevation = 1.dp,
+                    border = BorderStroke(1.dp, com.example.ui.theme.ElintBrandPrimaryRingEdge),
+                    shadowElevation = 0.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -640,10 +723,10 @@ fun AttendanceKioskScreen(
                         val currentAcc = uiState.currentAccuracy
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = if ((currentAcc ?: 999f) <= 40f) Color(0xFFF0FDF4) else Color(0xFFF8FAFC),
+                            color = if ((currentAcc ?: 999f) <= 40f) com.example.ui.theme.ElintBrandTintSurface else com.example.ui.theme.ElintSurfaceSubtle,
                             border = BorderStroke(
                                 1.dp,
-                                if ((currentAcc ?: 999f) > 40f) Color(0xFFFDE68A) else Color(0xFFCCFBF1)
+                                if ((currentAcc ?: 999f) > 40f) Color(0xFFFDE68A) else com.example.ui.theme.ElintBrandPrimaryRingEdge
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -667,28 +750,28 @@ fun AttendanceKioskScreen(
                                         CircularProgressIndicator(
                                             modifier = Modifier.size(14.dp),
                                             strokeWidth = 2.dp,
-                                            color = Color(0xFF006D77)
+                                            color = com.example.ui.theme.ElintBrandPrimary
                                         )
                                         Icon(
                                             imageVector = Icons.Default.Place,
                                             contentDescription = "Location",
-                                            tint = Color(0xFF006D77),
+                                            tint = com.example.ui.theme.ElintBrandPrimary,
                                             modifier = Modifier.size(16.dp)
                                         )
                                         Text(
                                             text = s.fetchingLocation,
                                             style = TextStyle(
-                                                fontFamily = InterFontFamily,
+                                                fontFamily = com.example.ui.theme.PlusJakartaSans,
                                                 fontSize = 12.sp,
                                                 fontWeight = FontWeight.Medium,
-                                                color = Color(0xFF006D77)
+                                                color = com.example.ui.theme.ElintBrandPrimary
                                             )
                                         )
                                     } else {
                                         Icon(
                                             imageVector = Icons.Default.Place,
                                             contentDescription = "Location",
-                                            tint = Color(0xFF006D77),
+                                            tint = com.example.ui.theme.ElintBrandPrimary,
                                             modifier = Modifier.size(16.dp)
                                         )
                                         val siteName = uiState.selectedLocation?.pureName()?.takeIf { it.isNotBlank() }
@@ -712,10 +795,10 @@ fun AttendanceKioskScreen(
                                             Text(
                                                 text = locationDisplayText,
                                                 style = TextStyle(
-                                                    fontFamily = InterFontFamily,
+                                                    fontFamily = com.example.ui.theme.PlusJakartaSans,
                                                     fontSize = 12.sp,
                                                     fontWeight = FontWeight.Medium,
-                                                    color = Color(0xFF006D77)
+                                                    color = com.example.ui.theme.ElintBrandPrimary
                                                 ),
                                                 maxLines = 2,
                                                 overflow = TextOverflow.Ellipsis
@@ -723,7 +806,7 @@ fun AttendanceKioskScreen(
                                             if (currentAcc != null) {
                                                 val acc = currentAcc.toInt()
                                                 val isCoarse = acc > 40
-                                                val accColor = if (isCoarse) Color(0xFFD97706) else Color(0xFF0D9488)
+                                                val accColor = if (isCoarse) Color(0xFFD97706) else com.example.ui.theme.ElintBrandPrimary
                                                 val accText = if (isCoarse) {
                                                     "±${acc}m • ${s.locationAccuracyCoarse}"
                                                 } else {
@@ -732,7 +815,7 @@ fun AttendanceKioskScreen(
                                                 Text(
                                                     text = accText,
                                                     style = TextStyle(
-                                                        fontFamily = InterFontFamily,
+                                                        fontFamily = com.example.ui.theme.PlusJakartaSans,
                                                         fontSize = 10.sp,
                                                         fontWeight = FontWeight.SemiBold,
                                                         color = accColor
@@ -747,7 +830,7 @@ fun AttendanceKioskScreen(
                                     Icon(
                                         imageVector = Icons.Default.Refresh,
                                         contentDescription = s.refreshLocation,
-                                        tint = Color(0xFF006D77),
+                                        tint = com.example.ui.theme.ElintBrandPrimary,
                                         modifier = Modifier
                                             .size(18.dp)
                                             .padding(start = 4.dp)
@@ -766,10 +849,10 @@ fun AttendanceKioskScreen(
 
                 // Card 2: Last activity
                 Surface(
-                    shape = RoundedCornerShape(14.dp),
+                    shape = com.example.ui.theme.ElintShapes.card,
                     color = Color.White,
-                    border = BorderStroke(1.dp, CardBorder),
-                    shadowElevation = 1.dp,
+                    border = BorderStroke(1.dp, com.example.ui.theme.ElintBrandPrimaryRingEdge),
+                    shadowElevation = 0.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Row(
@@ -783,13 +866,13 @@ fun AttendanceKioskScreen(
                             modifier = Modifier
                                 .size(28.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFE0F2FE)),
+                                .background(com.example.ui.theme.ElintBrandPrimaryContainer),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Schedule,
                                 contentDescription = null,
-                                tint = Color(0xFF006D77),
+                                tint = com.example.ui.theme.ElintBrandPrimary,
                                 modifier = Modifier.size(17.dp)
                             )
                         }
@@ -797,18 +880,18 @@ fun AttendanceKioskScreen(
                             Text(
                                 text = s.lastActivityPrefix,
                                 style = TextStyle(
-                                    fontFamily = InterFontFamily,
+                                    fontFamily = com.example.ui.theme.PlusJakartaSans,
                                     fontSize = 13.sp,
-                                    color = Color(0xFF64748B),
+                                    color = HomeMuted,
                                     fontWeight = FontWeight.Normal
                                 )
                             )
                             Text(
                                 text = localizeActivityText(uiState.lastActivityText.ifBlank { "--" }, currentLanguage),
                                 style = TextStyle(
-                                    fontFamily = InterFontFamily,
+                                    fontFamily = com.example.ui.theme.PlusJakartaSans,
                                     fontSize = 13.sp,
-                                    color = Color(0xFF0F172A),
+                                    color = HomeInk,
                                     fontWeight = FontWeight.Bold
                                 )
                             )
@@ -818,10 +901,10 @@ fun AttendanceKioskScreen(
 
                 // Card 3: Notes
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = com.example.ui.theme.ElintShapes.card,
                     color = Color.White,
-                    border = BorderStroke(1.dp, CardBorder),
-                    shadowElevation = 1.dp,
+                    border = BorderStroke(1.dp, com.example.ui.theme.ElintBrandPrimaryRingEdge),
+                    shadowElevation = 0.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     NotesSection(
@@ -836,10 +919,10 @@ fun AttendanceKioskScreen(
 
                 // Card 4: Camera Preview & Status Card
                 Surface(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = com.example.ui.theme.ElintShapes.card,
                     color = Color.White,
-                    border = BorderStroke(1.dp, CardBorder),
-                    shadowElevation = 1.dp,
+                    border = BorderStroke(1.dp, com.example.ui.theme.ElintBrandPrimaryRingEdge),
+                    shadowElevation = 0.dp,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
@@ -912,7 +995,7 @@ fun AttendanceKioskScreen(
                                     color = Color.White,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium,
-                                    fontFamily = InterFontFamily,
+                                    fontFamily = com.example.ui.theme.PlusJakartaSans,
                                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 5.dp)
                                 )
                             }
@@ -921,7 +1004,7 @@ fun AttendanceKioskScreen(
                         Text(
                             text = faceLook.caption,
                             style = TextStyle(
-                                fontFamily = InterFontFamily,
+                                fontFamily = com.example.ui.theme.PlusJakartaSans,
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.Medium,
                                 color = faceLook.captionColor,
@@ -949,10 +1032,10 @@ fun AttendanceKioskScreen(
                             Text(
                                 text = s.poweredBy,
                                 style = TextStyle(
-                                    fontFamily = InterFontFamily,
+                                    fontFamily = com.example.ui.theme.PlusJakartaSans,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Normal,
-                                    color = Color(0xFF64748B)
+                                    color = HomeMuted
                                 )
                             )
                             Spacer(modifier = Modifier.width(6.dp))
@@ -987,14 +1070,36 @@ fun AttendanceKioskScreen(
 
                     // 3-Tab Bottom Navigation Bar (Home, Capture, Settings) - hidden on Capture tab & Attendance History
                     if (currentTab != KioskBottomTab.CAPTURE && !uiState.showTodayAttendance) {
-                        KioskBottomNavigationBar(
-                            selectedTab = currentTab,
-                            onTabSelected = { currentTab = it },
-                            currentLanguage = currentLanguage
+                        ElintBottomNav(
+                            selected = when (currentTab) {
+                                KioskBottomTab.SETTINGS -> ElintTab.PROFILE
+                                KioskBottomTab.MYDAY -> ElintTab.MY_DAY
+                                KioskBottomTab.RECORDS -> ElintTab.RECORDS
+                                else -> ElintTab.HOME
+                            },
+                            language = currentLanguage,
+                            onSelect = { tab ->
+                                when (tab) {
+                                    ElintTab.HOME -> currentTab = KioskBottomTab.HOME
+                                    ElintTab.PROFILE -> currentTab = KioskBottomTab.SETTINGS
+                                    ElintTab.MY_DAY -> currentTab = KioskBottomTab.MYDAY
+                                    ElintTab.RECORDS -> currentTab = KioskBottomTab.RECORDS
+                                }
+                            }
                         )
                     }
                 }
             }
+
+        if (uiState.offerNonBiometric) {
+            AlertDialog(
+                onDismissRequest = { viewModel.dismissNonBiometric() },
+                title = { Text(s.nonBioTitle) },
+                text = { Text(s.nonBioBody) },
+                confirmButton = { TextButton(onClick = { viewModel.confirmNonBiometric() }) { Text(s.nonBioConfirm) } },
+                dismissButton = { TextButton(onClick = { viewModel.dismissNonBiometric() }) { Text(s.nonBioRetry) } }
+            )
+        }
 
         // 10) Toasts at top: success (#DFF0D8 bg, #3C763D text, 7s), error (#F2DEDE bg, #A94442 text, 5.5s), info (#D9EDF7 bg, #31708F text)
         AnimatedVisibility(
@@ -1004,7 +1109,8 @@ fun AttendanceKioskScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .widthIn(max = 580.dp)
-                .padding(top = 16.dp, start = 16.dp, end = 16.dp)
+                .statusBarsPadding()
+                .padding(top = 8.dp, start = 16.dp, end = 16.dp)
         ) {
             uiState.toast?.let { toast ->
                 ToastBanner(
@@ -2961,6 +3067,7 @@ private fun EnrollmentUserListDialog(
 
 /**
  * Face enrollment screen: camera preview with oval guide, collects 4 face scans and sends them with "Register Face".
+ * Uses the Elint theme: cream background, white cards, teal primary, round icon buttons (see docs/ElintOmAT_Android_Design_Rules.md).
  */
 @Composable
 private fun FaceEnrollmentScannerView(
@@ -2980,349 +3087,176 @@ private fun FaceEnrollmentScannerView(
     onRetake: () -> Unit,
     onRegister: () -> Unit
 ) {
-    val scrollState = rememberScrollState()
+    val T = com.example.ui.theme.ElintText
+    val s = LangManager.getStrings(viewModel.uiState.value.appLanguage)
+    val teal = com.example.ui.theme.ElintBrandPrimary
+    val isComplete = scanCount >= 4
+    val frameColor = if (isComplete) teal else if (scanCount > 0) teal.copy(alpha = 0.6f) else Color(0xFFCBD5D1)
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(scrollState)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        // 1. Top Bar inside Scanner view
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = Color(0xFFF1F5F9),
-            border = BorderStroke(1.dp, Color(0xFFCBD5E1)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    IconButton(
-                        onClick = onBack,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = TextPrimary
-                        )
-                    }
-                    Column {
-                        Text(
-                            text = "Register: ${user.name}",
-                            fontFamily = InterFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            text = if (!user.phone.isNullOrBlank()) "Phone: ${user.phone}" else (user.group ?: "Employee"),
-                            fontFamily = InterFontFamily,
-                            fontSize = 11.sp,
-                            color = TextMuted
-                        )
-                    }
-                }
-                IconButton(
-                    onClick = onClose,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = TextMuted
-                    )
-                }
-            }
-        }
-
-        // 2. Live Camera Preview with Oval Guide
-        val isComplete = scanCount >= 4
-        val frameColor = if (isComplete) Color(0xFF16A34A) else if (scanCount > 0) Color(0xFF0284C7) else Color(0xFF94A3B8)
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .border(2.5.dp, frameColor, RoundedCornerShape(20.dp))
-        ) {
-            CameraPreviewView(
-                isCameraActive = isCameraActive,
-                onCameraStarted = { viewModel.onCameraStarted() },
-                onCameraFailed = { viewModel.onCameraFailed(it) },
-                canAcceptFrame = { faceBridge.canAcceptFrame() },
-                onFrameCaptured = { base64, bitmap ->
-                    viewModel.onLatestFrame(bitmap)
-                    if (faceBridge.canAcceptFrame()) {
-                        faceBridge.markFrameSent()
-                        webViewManager.detectFrame(base64)
-                    }
-                }
-            )
-
-            // Oval Guide overlay
-            Canvas(modifier = Modifier.matchParentSize()) {
-                val ovalWidth = size.width * 0.48f
-                val ovalHeight = size.height * 0.72f
-                drawOval(
-                    color = frameColor,
-                    topLeft = Offset(
-                        (size.width - ovalWidth) / 2f,
-                        (size.height - ovalHeight) / 2f
-                    ),
-                    size = Size(ovalWidth, ovalHeight),
-                    style = Stroke(
-                        width = 2.5.dp.toPx(),
-                        pathEffect = if (!isComplete) PathEffect.dashPathEffect(floatArrayOf(14f, 10f), 0f) else null
-                    )
-                )
-            }
-
-            // Top Status Pill inside camera
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 12.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color(0xCC000000))
-                    .padding(horizontal = 14.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = if (isComplete) "✓ 4/4 Biometric Scans Ready" else "Align Face Inside Oval Guide",
-                    fontFamily = InterFontFamily,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isComplete) Color(0xFF4ADE80) else Color.White
-                )
-            }
-
-            // Bottom Progress Pill inside camera
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 12.dp)
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(if (isComplete) Color(0xFF16A34A) else Color(0xDD0F172A))
-                    .padding(horizontal = 16.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = "Samples Captured: $scanCount / 4",
-                    fontFamily = InterFontFamily,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White
-                )
-            }
-        }
-
-        // 3. Progress Bar
+    ProvideTextStyle(TextStyle(fontFamily = com.example.ui.theme.PlusJakartaSans)) {
         Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier
+                .fillMaxSize()
+                .background(com.example.ui.theme.ElintBackground)
+                .statusBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Face Scan Progress",
-                    fontFamily = InterFontFamily,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary
-                )
-                Text(
-                    text = "${(scanCount * 25)}%",
-                    fontFamily = InterFontFamily,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isComplete) Color(0xFF16A34A) else BrandPrimary
-                )
-            }
-            LinearProgressIndicator(
-                progress = { (scanCount / 4f).coerceIn(0f, 1f) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
-                color = if (isComplete) Color(0xFF16A34A) else BrandPrimary,
-                trackColor = Color(0xFFE2E8F0)
-            )
-        }
-
-        // 4. Feedback Messages: Success, Error, Registering
-        if (successMsg != null) {
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = ToastSuccessBg,
-                border = BorderStroke(1.dp, ToastSuccessBorder),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
+            // 1. Header: back, title + person, close
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+                Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White).clickable { onBack() }, contentAlignment = Alignment.Center) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = HomeInk, modifier = Modifier.size(20.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(s.enrTitle, style = T.sheetTitle, color = HomeInk)
                     Text(
-                        text = "✓ $successMsg",
-                        fontFamily = InterFontFamily,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ToastSuccessText,
-                        textAlign = TextAlign.Center
+                        listOf(user.name, if (!user.phone.isNullOrBlank()) user.phone else (user.group ?: "")).filter { it.isNotBlank() }.joinToString(" · "),
+                        style = T.caption, color = HomeMuted, maxLines = 1, overflow = TextOverflow.Ellipsis
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        if (isAdmin) {
-                            OutlinedButton(
-                                onClick = onBack,
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Enroll Another", fontFamily = InterFontFamily, fontSize = 12.sp)
+                }
+                Box(Modifier.size(40.dp).clip(CircleShape).background(Color.White).clickable { onClose() }, contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = HomeMuted, modifier = Modifier.size(20.dp))
+                }
+            }
+
+            // 2. Camera card
+            Surface(shape = com.example.ui.theme.ElintShapes.card, color = Color.White, modifier = Modifier.fillMaxWidth()) {
+                Box(
+                    modifier = Modifier
+                        .padding(10.dp)
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .border(2.dp, frameColor, RoundedCornerShape(16.dp))
+                ) {
+                    CameraPreviewView(
+                        isCameraActive = isCameraActive,
+                        onCameraStarted = { viewModel.onCameraStarted() },
+                        onCameraFailed = { viewModel.onCameraFailed(it) },
+                        canAcceptFrame = { faceBridge.canAcceptFrame() },
+                        onFrameCaptured = { base64, bitmap ->
+                            viewModel.onLatestFrame(bitmap)
+                            if (faceBridge.canAcceptFrame()) {
+                                faceBridge.markFrameSent()
+                                webViewManager.detectFrame(base64)
                             }
                         }
-                        Button(
-                            onClick = onClose,
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF15803D)),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Done", fontFamily = InterFontFamily, color = Color.White)
+                    )
+                    Canvas(modifier = Modifier.matchParentSize()) {
+                        val ovalWidth = size.width * 0.48f
+                        val ovalHeight = size.height * 0.72f
+                        drawOval(
+                            color = if (isComplete) teal else Color.White,
+                            topLeft = Offset((size.width - ovalWidth) / 2f, (size.height - ovalHeight) / 2f),
+                            size = Size(ovalWidth, ovalHeight),
+                            style = Stroke(
+                                width = 2.5.dp.toPx(),
+                                pathEffect = if (!isComplete) PathEffect.dashPathEffect(floatArrayOf(14f, 10f), 0f) else null
+                            )
+                        )
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(50), color = Color.White.copy(alpha = 0.94f),
+                        modifier = Modifier.align(Alignment.TopCenter).padding(top = 10.dp)
+                    ) {
+                        Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            if (isComplete) Icon(painterResource(R.drawable.ic_check), contentDescription = null, tint = teal, modifier = Modifier.size(14.dp))
+                            Text(
+                                if (isComplete) s.enrScansReady else s.enrAlign,
+                                style = T.caption.copy(fontWeight = FontWeight.SemiBold), color = if (isComplete) teal else HomeInk
+                            )
                         }
                     }
                 }
             }
-        }
 
-        if (errorMsg != null) {
-            Surface(
-                shape = RoundedCornerShape(10.dp),
-                color = ToastErrorBg,
-                border = BorderStroke(1.dp, ToastErrorBorder),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    text = errorMsg,
-                    fontFamily = InterFontFamily,
-                    fontSize = 12.sp,
-                    color = ToastErrorText,
-                    modifier = Modifier.padding(10.dp),
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-
-        if (isRegistering) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = BrandPrimary)
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = "Saving biometric data to server...",
-                    fontFamily = InterFontFamily,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = BrandPrimary
-                )
-            }
-        }
-
-        // 5. Actions Bar
-        if (successMsg == null && !isRegistering) {
-            if (isComplete) {
-                Button(
-                    onClick = onRegister,
-                    colors = ButtonDefaults.buttonColors(containerColor = BrandPrimary),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PhotoCamera,
-                        contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Register Face",
-                        fontFamily = InterFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp,
-                        color = Color.White
-                    )
-                }
-
-                OutlinedButton(
-                    onClick = onRetake,
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Retake Scan",
-                        fontFamily = InterFontFamily,
-                        fontSize = 13.sp,
-                        color = TextPrimary
-                    )
-                }
-            } else {
-                Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFFF8FAFC),
-                    border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = BrandPrimary,
-                            strokeWidth = 2.dp
-                        )
-                        Text(
-                            text = "Please look at the camera. Collecting sample ${scanCount + 1} of 4...",
-                            fontFamily = InterFontFamily,
-                            fontSize = 12.sp,
-                            color = TextSlate
-                        )
+            // 3. Progress: four segments
+            Surface(shape = com.example.ui.theme.ElintShapes.card, color = Color.White, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(s.enrProgress, style = T.label.copy(fontWeight = FontWeight.Bold), color = HomeInk, modifier = Modifier.weight(1f))
+                        Text("$scanCount / 4", style = T.label.copy(fontWeight = FontWeight.Bold), color = teal)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                        repeat(4) { i ->
+                            Box(
+                                Modifier.weight(1f).height(8.dp).clip(RoundedCornerShape(50))
+                                    .background(if (i < scanCount) teal else com.example.ui.theme.ElintBrandPrimaryContainer)
+                            )
+                        }
                     }
                 }
             }
+
+            // 4. Feedback
+            if (successMsg != null) {
+                Surface(shape = com.example.ui.theme.ElintShapes.card, color = Color.White, border = BorderStroke(1.dp, teal.copy(alpha = 0.3f)), modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(Modifier.size(44.dp).clip(CircleShape).background(teal.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                            Icon(painterResource(R.drawable.ic_check), contentDescription = null, tint = teal, modifier = Modifier.size(24.dp))
+                        }
+                        Text(successMsg, style = T.cardTitle, color = HomeInk, textAlign = TextAlign.Center)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            if (isAdmin) {
+                                OutlinedButton(onClick = onBack, shape = RoundedCornerShape(14.dp), modifier = Modifier.weight(1f).height(48.dp)) {
+                                    Text(s.enrAnother, style = T.label.copy(fontWeight = FontWeight.Bold), color = teal)
+                                }
+                            }
+                            Button(
+                                onClick = onClose, shape = RoundedCornerShape(14.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = teal),
+                                modifier = Modifier.weight(1f).height(48.dp)
+                            ) { Text(s.enrDone, style = T.label.copy(fontWeight = FontWeight.Bold), color = Color.White) }
+                        }
+                    }
+                }
+            }
+
+            if (errorMsg != null) {
+                Surface(shape = RoundedCornerShape(14.dp), color = Color(0xFFFDECEC), border = BorderStroke(1.dp, Color(0xFFF5C2C2)), modifier = Modifier.fillMaxWidth()) {
+                    Text(errorMsg, style = T.caption.copy(fontWeight = FontWeight.SemiBold), color = Color(0xFF9F1D1D), textAlign = TextAlign.Center, modifier = Modifier.padding(12.dp))
+                }
+            }
+
+            if (isRegistering) {
+                Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp), color = teal, strokeWidth = 2.5.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text(s.enrSaving, style = T.label.copy(fontWeight = FontWeight.SemiBold), color = teal)
+                }
+            }
+
+            // 5. Actions
+            if (successMsg == null && !isRegistering) {
+                if (isComplete) {
+                    Button(
+                        onClick = onRegister, shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = teal),
+                        modifier = Modifier.fillMaxWidth().height(52.dp)
+                    ) {
+                        Icon(painterResource(R.drawable.ic_face_scan), contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(s.enrRegisterBtn, style = T.cardTitle, color = Color.White)
+                    }
+                    OutlinedButton(
+                        onClick = onRetake, shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, com.example.ui.theme.ElintBrandPrimaryRingEdge),
+                        modifier = Modifier.fillMaxWidth().height(48.dp)
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = null, tint = teal, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(s.enrRetake, style = T.label.copy(fontWeight = FontWeight.Bold), color = teal)
+                    }
+                } else {
+                    Surface(shape = com.example.ui.theme.ElintShapes.card, color = com.example.ui.theme.ElintBrandTintSurface, modifier = Modifier.fillMaxWidth()) {
+                        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = teal, strokeWidth = 2.dp)
+                            Text(s.enrLookCamera.replace("{n}", (scanCount + 1).toString()), style = T.label, color = HomeInk)
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
@@ -3446,23 +3380,23 @@ private fun LocationPickerSection(
                         modifier = Modifier
                             .size(30.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFE0F2FE)),
+                            .background(com.example.ui.theme.ElintBrandPrimaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Place,
                             contentDescription = null,
-                            tint = Color(0xFF006D77),
+                            tint = com.example.ui.theme.ElintBrandPrimary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
                     Text(
                         text = selectedLocation?.displayLabel() ?: s.selectLocation,
                         style = TextStyle(
-                            fontFamily = InterFontFamily,
+                            fontFamily = com.example.ui.theme.PlusJakartaSans,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = if (selectedLocation != null) Color(0xFF0F172A) else Color(0xFF64748B)
+                            color = if (selectedLocation != null) HomeInk else HomeMuted
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -3489,9 +3423,9 @@ private fun LocationPickerSection(
                             Text(
                                 text = option.displayLabel(),
                                 style = TextStyle(
-                                    fontFamily = InterFontFamily,
+                                    fontFamily = com.example.ui.theme.PlusJakartaSans,
                                     fontSize = 13.sp,
-                                    color = Color(0xFF0F172A)
+                                    color = HomeInk
                                 )
                             )
                         },
@@ -3521,7 +3455,7 @@ private fun LocationPickerSection(
                 Text(
                     text = s.multipleLocationsHint,
                     style = TextStyle(
-                        fontFamily = InterFontFamily,
+                        fontFamily = com.example.ui.theme.PlusJakartaSans,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Normal,
                         color = Color(0xFFD97706)
@@ -3554,7 +3488,7 @@ private fun ToggleIndicators(
                 .weight(1f)
                 .height(48.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (isInActive) Color(0xFF006D77) else Color.White)
+                .background(if (isInActive) com.example.ui.theme.ElintBrandPrimary else Color.White)
                 .border(
                     width = if (isInActive) 0.dp else 1.5.dp,
                     color = if (isInActive) Color.Transparent else Color(0xFFCBD5E1),
@@ -3571,13 +3505,13 @@ private fun ToggleIndicators(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Login,
                     contentDescription = null,
-                    tint = if (isInActive) Color.White else Color(0xFF334155),
+                    tint = if (isInActive) Color.White else HomeInk,
                     modifier = Modifier.size(18.dp)
                 )
                 Text(
                     text = s.inButton,
                     style = TextStyle(
-                        fontFamily = InterFontFamily,
+                        fontFamily = com.example.ui.theme.PlusJakartaSans,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isInActive) Color.White else Color(0xFF1E293B)
@@ -3592,7 +3526,7 @@ private fun ToggleIndicators(
                 .weight(1f)
                 .height(48.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (isOutActive) Color(0xFF006D77) else Color.White)
+                .background(if (isOutActive) com.example.ui.theme.ElintBrandPrimary else Color.White)
                 .border(
                     width = if (isOutActive) 0.dp else 1.5.dp,
                     color = if (isOutActive) Color.Transparent else Color(0xFFCBD5E1),
@@ -3609,13 +3543,13 @@ private fun ToggleIndicators(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.Logout,
                     contentDescription = null,
-                    tint = if (isOutActive) Color.White else Color(0xFF334155),
+                    tint = if (isOutActive) Color.White else HomeInk,
                     modifier = Modifier.size(18.dp)
                 )
                 Text(
                     text = s.outButton,
                     style = TextStyle(
-                        fontFamily = InterFontFamily,
+                        fontFamily = com.example.ui.theme.PlusJakartaSans,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isOutActive) Color.White else Color(0xFF1E293B)
@@ -3644,16 +3578,16 @@ private fun NotesSection(
             Icon(
                 imageVector = Icons.Outlined.Description,
                 contentDescription = null,
-                tint = Color(0xFF64748B),
+                tint = HomeMuted,
                 modifier = Modifier.size(17.dp)
             )
             Text(
                 text = s.notesLabel,
                 style = TextStyle(
-                    fontFamily = InterFontFamily,
+                    fontFamily = com.example.ui.theme.PlusJakartaSans,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF334155)
+                    color = HomeInk
                 )
             )
         }
@@ -3663,7 +3597,7 @@ private fun NotesSection(
                 .fillMaxWidth()
                 .height(80.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(10.dp))
+                .border(1.dp, com.example.ui.theme.ElintBrandPrimaryRingEdge, RoundedCornerShape(10.dp))
                 .background(Color(0xFFFAFAFA))
                 .padding(horizontal = 12.dp, vertical = 10.dp)
                 .testTag("notes_input")
@@ -3672,7 +3606,7 @@ private fun NotesSection(
                 Text(
                     text = s.notesPlaceholder,
                     style = TextStyle(
-                        fontFamily = InterFontFamily,
+                        fontFamily = com.example.ui.theme.PlusJakartaSans,
                         fontSize = 13.sp,
                         color = Color(0xFF94A3B8)
                     )
@@ -3682,11 +3616,11 @@ private fun NotesSection(
                 value = notes,
                 onValueChange = onNotesChanged,
                 textStyle = TextStyle(
-                    fontFamily = InterFontFamily,
+                    fontFamily = com.example.ui.theme.PlusJakartaSans,
                     fontSize = 13.sp,
-                    color = Color(0xFF0F172A)
+                    color = HomeInk
                 ),
-                cursorBrush = SolidColor(Color(0xFF006D77)),
+                cursorBrush = SolidColor(com.example.ui.theme.ElintBrandPrimary),
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -3724,11 +3658,11 @@ private fun StickyBottomBar(
                     .fillMaxWidth()
                     .height(52.dp)
                     .testTag("capture_button"),
-                shape = RoundedCornerShape(14.dp),
+                shape = com.example.ui.theme.ElintShapes.card,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF006D77),
+                    containerColor = com.example.ui.theme.ElintBrandPrimary,
                     contentColor = Color.White,
-                    disabledContainerColor = Color(0xFF006D77).copy(alpha = 0.5f),
+                    disabledContainerColor = com.example.ui.theme.ElintBrandPrimary.copy(alpha = 0.5f),
                     disabledContentColor = Color.White.copy(alpha = 0.75f)
                 ),
                 elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
@@ -3743,7 +3677,7 @@ private fun StickyBottomBar(
                     Text(
                         text = s.fetchingLocation,
                         style = TextStyle(
-                            fontFamily = InterFontFamily,
+                            fontFamily = com.example.ui.theme.PlusJakartaSans,
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -3765,7 +3699,7 @@ private fun StickyBottomBar(
                     Text(
                         text = buttonLabel,
                         style = TextStyle(
-                            fontFamily = InterFontFamily,
+                            fontFamily = com.example.ui.theme.PlusJakartaSans,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -3785,46 +3719,45 @@ private fun ToastBanner(
     currentLanguage: String = "en",
     onDismiss: () -> Unit
 ) {
-    val (bg, textColor, borderColor) = when (toast.type) {
-        ToastType.SUCCESS -> Triple(ToastSuccessBg, ToastSuccessText, ToastSuccessBorder)
-        ToastType.ERROR -> Triple(ToastErrorBg, ToastErrorText, ToastErrorBorder)
-        ToastType.INFO -> Triple(ToastInfoBg, ToastInfoText, ToastInfoBorder)
+    // Theme toast: white card, 16dp radius, soft shadow, round icon in the status colour.
+    val accent = when (toast.type) {
+        ToastType.SUCCESS -> com.example.ui.theme.ElintBrandPrimary
+        ToastType.ERROR -> Color(0xFFB91C1C)
+        ToastType.INFO -> Color(0xFF2F7CF6)
     }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(bg)
-            .border(1.dp, borderColor, RoundedCornerShape(8.dp))
-            .padding(horizontal = 14.dp, vertical = 10.dp)
-            .testTag("toast_banner")
+    val iconRes = when (toast.type) {
+        ToastType.SUCCESS -> R.drawable.ic_check
+        ToastType.ERROR -> R.drawable.ic_x_circle
+        ToastType.INFO -> R.drawable.ic_info
+    }
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = Color.White,
+        shadowElevation = 8.dp,
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.25f)),
+        modifier = Modifier.fillMaxWidth().testTag("toast_banner")
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            modifier = Modifier.padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            Box(Modifier.size(32.dp).clip(CircleShape).background(accent.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                Icon(painterResource(iconRes), contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+            }
             Text(
                 text = localizeToastMessage(toast.message, currentLanguage),
                 style = TextStyle(
-                    fontFamily = InterFontFamily,
+                    fontFamily = com.example.ui.theme.PlusJakartaSans,
                     fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = textColor
+                    lineHeight = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = HomeInk
                 ),
                 modifier = Modifier.weight(1f)
             )
-            IconButton(
-                onClick = onDismiss,
-                modifier = Modifier.size(24.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = "Dismiss notification",
-                    tint = textColor,
-                    modifier = Modifier.size(16.dp)
-                )
+            IconButton(onClick = onDismiss, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.Close, contentDescription = "Dismiss notification", tint = HomeMuted, modifier = Modifier.size(16.dp))
             }
         }
     }
@@ -5445,28 +5378,17 @@ private fun KioskSettingsScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF8FAFC))
+            .background(com.example.ui.theme.ElintBackground)
             .verticalScroll(scrollState)
             .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // ── 1. Screen Title & Subtitle ──────────────────────────────
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = s.settingsTitle,
-                fontFamily = InterFontFamily,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0F172A)
-            )
-        }
-
         // ── 2. Face Biometric Enrollment Card ───────────────────────
         Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = Color(0xFFF2FBF7),
-            border = BorderStroke(1.dp, Color(0xFFDCFCE7)),
-            shadowElevation = 1.dp,
+            shape = com.example.ui.theme.ElintShapes.card,
+            color = com.example.ui.theme.ElintBrandTintSurface,
+            border = BorderStroke(1.dp, com.example.ui.theme.ElintBrandPrimaryContainer),
+            shadowElevation = 0.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { onFaceEnrollmentClick() }
@@ -5482,35 +5404,35 @@ private fun KioskSettingsScreen(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFDCFCE7)),
+                        .background(com.example.ui.theme.ElintBrandPrimaryContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.PhotoCamera,
                         contentDescription = null,
-                        tint = Color(0xFF15803D),
+                        tint = com.example.ui.theme.ElintBrandPrimary,
                         modifier = Modifier.size(24.dp)
                     )
                 }
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = s.faceBiometricSubtitle,
-                        fontFamily = InterFontFamily,
+                        fontFamily = com.example.ui.theme.PlusJakartaSans,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A)
+                        color = HomeInk
                     )
                 }
                 Icon(
                     imageVector = Icons.Default.Face,
                     contentDescription = null,
-                    tint = Color(0xFF86EFAC),
+                    tint = com.example.ui.theme.ElintBrandPrimaryContainer,
                     modifier = Modifier.size(28.dp)
                 )
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = null,
-                    tint = Color(0xFF15803D),
+                    tint = com.example.ui.theme.ElintBrandPrimary,
                     modifier = Modifier.size(16.dp)
                 )
             }
@@ -5521,10 +5443,10 @@ private fun KioskSettingsScreen(
 
         // ── 3. Language / भाषा Card ─────────────────────────────────
         Surface(
-            shape = RoundedCornerShape(18.dp),
+            shape = com.example.ui.theme.ElintShapes.card,
             color = Color.White,
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-            shadowElevation = 1.dp,
+            border = BorderStroke(1.dp, com.example.ui.theme.ElintBrandPrimaryRingEdge),
+            shadowElevation = 0.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -5544,35 +5466,35 @@ private fun KioskSettingsScreen(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFE0F2FE)),
+                            .background(com.example.ui.theme.ElintBrandPrimaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Language,
                             contentDescription = null,
-                            tint = Color(0xFF0284C7),
+                            tint = com.example.ui.theme.ElintBrandPrimary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = s.languageLabel,
-                            fontFamily = InterFontFamily,
+                            fontFamily = com.example.ui.theme.PlusJakartaSans,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
+                            color = HomeInk
                         )
                         Text(
                             text = s.chooseLanguageSubtitle,
-                            fontFamily = InterFontFamily,
+                            fontFamily = com.example.ui.theme.PlusJakartaSans,
                             fontSize = 12.sp,
-                            color = Color(0xFF64748B)
+                            color = HomeMuted
                         )
                     }
                     Icon(
                         imageVector = if (isLanguageExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.ArrowDropDown,
                         contentDescription = null,
-                        tint = Color(0xFF64748B),
+                        tint = HomeMuted,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -5581,7 +5503,7 @@ private fun KioskSettingsScreen(
                     val languages = listOf(
                         Triple("en", "English", "EN" to Pair(Color(0xFFCCFBF1), Color(0xFF0F766E))),
                         Triple("mr", "मराठी (Marathi)", "म" to Pair(Color(0xFFFEE2E2), Color(0xFFDC2626))),
-                        Triple("hi", "हिंदी (Hindi)", "हि" to Pair(Color(0xFFE0F2FE), Color(0xFF0284C7))),
+                        Triple("hi", "हिंदी (Hindi)", "हि" to Pair(com.example.ui.theme.ElintBrandPrimaryContainer, com.example.ui.theme.ElintBrandPrimary)),
                         Triple("gu", "ગુજરાતી (Gujarati)", "ગુ" to Pair(Color(0xFFF3E8FF), Color(0xFF7E22CE)))
                     )
 
@@ -5592,10 +5514,10 @@ private fun KioskSettingsScreen(
 
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = if (selected) Color(0xFFE6F8F5) else Color(0xFFF8FAFC),
+                            color = if (selected) com.example.ui.theme.ElintBrandTintSurface else com.example.ui.theme.ElintSurfaceSubtle,
                             border = BorderStroke(
                                 1.dp,
-                                if (selected) Color(0xFF5EEAD4) else Color(0xFFF1F5F9)
+                                if (selected) com.example.ui.theme.ElintBrandPrimaryRingEdge else com.example.ui.theme.ElintBrandPrimaryRingEdge
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -5622,7 +5544,7 @@ private fun KioskSettingsScreen(
                                     ) {
                                         Text(
                                             text = badgeText,
-                                            fontFamily = InterFontFamily,
+                                            fontFamily = com.example.ui.theme.PlusJakartaSans,
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 11.sp,
                                             color = badgeTextClr
@@ -5630,10 +5552,10 @@ private fun KioskSettingsScreen(
                                     }
                                     Text(
                                         text = name,
-                                        fontFamily = InterFontFamily,
+                                        fontFamily = com.example.ui.theme.PlusJakartaSans,
                                         fontSize = 13.sp,
                                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                                        color = Color(0xFF0F172A)
+                                        color = HomeInk
                                     )
                                 }
 
@@ -5642,20 +5564,20 @@ private fun KioskSettingsScreen(
                                     Box(
                                         modifier = Modifier
                                             .size(20.dp)
-                                            .border(2.dp, Color(0xFF006D77), CircleShape),
+                                            .border(2.dp, com.example.ui.theme.ElintBrandPrimary, CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Box(
                                             modifier = Modifier
                                                 .size(10.dp)
-                                                .background(Color(0xFF006D77), CircleShape)
+                                                .background(com.example.ui.theme.ElintBrandPrimary, CircleShape)
                                         )
                                     }
                                 } else {
                                     Box(
                                         modifier = Modifier
                                             .size(20.dp)
-                                            .border(2.dp, Color(0xFFCBD5E1), CircleShape)
+                                            .border(2.dp, com.example.ui.theme.ElintBrandPrimaryRingEdge, CircleShape)
                                     )
                                 }
                             }
@@ -5665,12 +5587,53 @@ private fun KioskSettingsScreen(
             }
         }
 
+        // ── Notifications: opens the phone's own settings for this app (sound, vibration, mute per channel) ──
+        run {
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            Surface(
+                shape = com.example.ui.theme.ElintShapes.card,
+                color = Color.White,
+                border = BorderStroke(1.dp, com.example.ui.theme.ElintBrandPrimaryRingEdge),
+                shadowElevation = 0.dp,
+                modifier = Modifier.fillMaxWidth().clickable {
+                    try {
+                        ctx.startActivity(
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, ctx.packageName)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        )
+                    } catch (_: Exception) {
+                    }
+                }
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.size(38.dp).clip(CircleShape).background(com.example.ui.theme.ElintBrandPrimaryContainer),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Notifications, contentDescription = null, tint = com.example.ui.theme.ElintBrandPrimary, modifier = Modifier.size(22.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(s.notifSettingsTitle, fontFamily = com.example.ui.theme.PlusJakartaSans, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = HomeInk)
+                        Text(s.notifSettingsDesc, fontFamily = com.example.ui.theme.PlusJakartaSans, fontSize = 12.sp, color = HomeMuted)
+                    }
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = com.example.ui.theme.ElintBrandPrimary, modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+
         // ── 4. Auto Submit Switch Card ──────────────────────────────
+        // Admins and users with all rights only: auto-submit changes how the kiosk captures attendance.
+        if (uiState.isAdmin || uiState.home?.user?.allRights == true) {
         Surface(
-            shape = RoundedCornerShape(18.dp),
+            shape = com.example.ui.theme.ElintShapes.card,
             color = Color.White,
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-            shadowElevation = 1.dp,
+            border = BorderStroke(1.dp, com.example.ui.theme.ElintBrandPrimaryRingEdge),
+            shadowElevation = 0.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Row(
@@ -5689,30 +5652,30 @@ private fun KioskSettingsScreen(
                         modifier = Modifier
                             .size(38.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFE0F2FE)),
+                            .background(com.example.ui.theme.ElintBrandPrimaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Bolt,
                             contentDescription = null,
-                            tint = Color(0xFF0284C7),
+                            tint = com.example.ui.theme.ElintBrandPrimary,
                             modifier = Modifier.size(22.dp)
                         )
                     }
                     Column {
                         Text(
                             text = s.autoSubmitLabel,
-                            fontFamily = InterFontFamily,
+                            fontFamily = com.example.ui.theme.PlusJakartaSans,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
+                            color = HomeInk
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = if (uiState.isAutoSubmitEnabled) s.autoSubmitReady else s.autoSubmitManual,
-                            fontFamily = InterFontFamily,
+                            fontFamily = com.example.ui.theme.PlusJakartaSans,
                             fontSize = 12.sp,
-                            color = Color(0xFF64748B)
+                            color = HomeMuted
                         )
                     }
                 }
@@ -5721,20 +5684,21 @@ private fun KioskSettingsScreen(
                     onCheckedChange = onAutoSubmitChange,
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = Color.White,
-                        checkedTrackColor = Color(0xFF006D77),
+                        checkedTrackColor = com.example.ui.theme.ElintBrandPrimary,
                         uncheckedThumbColor = Color.White,
-                        uncheckedTrackColor = Color(0xFFCBD5E1)
+                        uncheckedTrackColor = com.example.ui.theme.ElintBrandPrimaryRingEdge
                     )
                 )
             }
         }
+        }
 
         // ── 5. System Diagnostics Card ──────────────────────────────
         Surface(
-            shape = RoundedCornerShape(18.dp),
+            shape = com.example.ui.theme.ElintShapes.card,
             color = Color.White,
-            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
-            shadowElevation = 1.dp,
+            border = BorderStroke(1.dp, com.example.ui.theme.ElintBrandPrimaryRingEdge),
+            shadowElevation = 0.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(
@@ -5754,35 +5718,35 @@ private fun KioskSettingsScreen(
                         modifier = Modifier
                             .size(38.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFD1FAE5)),
+                            .background(com.example.ui.theme.ElintBrandPrimaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Settings,
                             contentDescription = null,
-                            tint = Color(0xFF059669),
+                            tint = com.example.ui.theme.ElintBrandPrimary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = s.systemDiagnosticsTitle,
-                            fontFamily = InterFontFamily,
+                            fontFamily = com.example.ui.theme.PlusJakartaSans,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A)
+                            color = HomeInk
                         )
                         Text(
                             text = s.systemDiagnosticsDesc,
-                            fontFamily = InterFontFamily,
+                            fontFamily = com.example.ui.theme.PlusJakartaSans,
                             fontSize = 12.sp,
-                            color = Color(0xFF64748B)
+                            color = HomeMuted
                         )
                     }
                     Icon(
                         imageVector = if (isDiagnosticsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.ArrowDropDown,
                         contentDescription = null,
-                        tint = Color(0xFF64748B),
+                        tint = HomeMuted,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -5792,7 +5756,7 @@ private fun KioskSettingsScreen(
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = Color.White,
-                        border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                        border = BorderStroke(1.dp, com.example.ui.theme.ElintBrandPrimaryRingEdge),
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable { onViewLogs() }
@@ -5812,21 +5776,21 @@ private fun KioskSettingsScreen(
                                 Icon(
                                     imageVector = Icons.Outlined.Description,
                                     contentDescription = null,
-                                    tint = Color(0xFF64748B),
+                                    tint = HomeMuted,
                                     modifier = Modifier.size(18.dp)
                                 )
                                 Text(
                                     text = s.viewAppLogs,
-                                    fontFamily = InterFontFamily,
+                                    fontFamily = com.example.ui.theme.PlusJakartaSans,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF334155)
+                                    color = HomeInk
                                 )
                             }
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                 contentDescription = null,
-                                tint = Color(0xFF64748B),
+                                tint = HomeMuted,
                                 modifier = Modifier.size(15.dp)
                             )
                         }
@@ -5837,7 +5801,7 @@ private fun KioskSettingsScreen(
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = Color.White,
-                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                            border = BorderStroke(1.dp, com.example.ui.theme.ElintBrandPrimaryRingEdge),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onSettingsClicked() }
@@ -5857,21 +5821,21 @@ private fun KioskSettingsScreen(
                                     Icon(
                                         imageVector = Icons.Default.Dns,
                                         contentDescription = null,
-                                        tint = Color(0xFF64748B),
+                                        tint = HomeMuted,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Text(
                                         text = s.configureServerUrl,
-                                        fontFamily = InterFontFamily,
+                                        fontFamily = com.example.ui.theme.PlusJakartaSans,
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = Color(0xFF334155)
+                                        color = HomeInk
                                     )
                                 }
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                                     contentDescription = null,
-                                    tint = Color(0xFF64748B),
+                                    tint = HomeMuted,
                                     modifier = Modifier.size(15.dp)
                                 )
                             }
@@ -5899,7 +5863,7 @@ private fun KioskSettingsScreen(
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = s.logoutButton,
-                fontFamily = InterFontFamily,
+                fontFamily = com.example.ui.theme.PlusJakartaSans,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
                 color = Color.White
