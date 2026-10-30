@@ -21,6 +21,9 @@ import com.example.data.model.AttendanceRecordItem
 import com.example.data.model.AttendanceUserOption
 import com.example.data.model.EnrollmentUserItem
 import com.example.data.model.EnrollmentUsersResponse
+import com.example.data.model.HomeSummaryResponse
+import com.example.data.model.MyDayResponse
+import com.example.data.model.RecordsResponse
 import com.example.data.model.RegisterFaceResponse
 import com.example.data.network.NetworkClientManager
 import com.example.data.util.AppLogger
@@ -117,7 +120,24 @@ data class AttendanceUiState(
     val enrollmentFacePhoto: Bitmap? = null,
     val isRegisteringFace: Boolean = false,
     val enrollmentSuccessMsg: String? = null,
-    val enrollmentErrorMsg: String? = null
+    val enrollmentErrorMsg: String? = null,
+    val home: HomeSummaryResponse? = null,
+    val isHomeLoading: Boolean = false,
+    val isSendingQuick: Boolean = false,
+    val quickUpdateError: String? = null,
+    val showAnnouncements: Boolean = false,
+    val records: RecordsResponse? = null,
+    val isRecordsLoading: Boolean = false,
+    val myDay: MyDayResponse? = null,
+    /** Announcement ids the person has already looked at (bell opened); kept on the phone. */
+    val seenAnnouncementIds: Set<Int> = emptySet(),
+    /** Counts accepted punches (online or saved offline); the UI leaves Capture when it changes. */
+    val punchDone: Int = 0,
+    val visit: com.example.data.model.VisitContext? = null,
+    val visitDetails: com.example.data.model.VisitDetails? = null,
+    val isMyDayLoading: Boolean = false,
+    val openScanRequest: Boolean = false,
+    val offerNonBiometric: Boolean = false
 )
 
 /**
@@ -146,6 +166,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     )
     val uiState: StateFlow<AttendanceUiState> = _uiState.asStateFlow()
 
+    private var faceFirstHandled = false
+    private var faceFailCount = 0
     private val descriptorBuffer = Collections.synchronizedList(mutableListOf<List<Float>>())
     private var consecutiveGoodTicks = 0
     private var consecutiveNoFaceTicks = 0
@@ -254,6 +276,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             val savedPhone = preferencesRepository.lastPhoneFlow.first()
             val autoSubmit = preferencesRepository.autoSubmitFlow.first()
             val appLanguage = preferencesRepository.appLanguageFlow.first()
+            networkClientManager.currentLanguage = appLanguage
             val isAdmin = preferencesRepository.isAdminFlow.first()
             preferencesRepository.syncFastPrefs(
                 baseUrl = base,
@@ -279,7 +302,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     isAutoSubmitEnabled = autoSubmit,
                     appLanguage = appLanguage,
                     isAdmin = isAdmin,
-                    isBootstrapping = false
+                    isBootstrapping = false,
+                    seenAnnouncementIds = readSeenAnnouncements()
                 )
             }
             AppLogger.setServerContext(base.ifBlank { masterUrl }, androidCode)
@@ -315,6 +339,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 if (networkClientManager.isOnline()) {
                     refreshSites(base)
                     sendPendingPunch()
+                    loadHome()
                 }
                 if (cached.isToday() && cached.lastType.equals("check_in", ignoreCase = true)) {
                     AreaTrackService.resume(getApplication())
@@ -655,6 +680,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     fun onLanguageSelected(lang: String) {
         viewModelScope.launch {
             preferencesRepository.setAppLanguage(lang)
+            networkClientManager.currentLanguage = lang
+            getApplication<android.app.Application>().getSharedPreferences("home_prefs", android.content.Context.MODE_PRIVATE).edit().putString("lang", lang).apply()
             _uiState.update { it.copy(appLanguage = lang) }
         }
     }
@@ -814,6 +841,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     fetchCapturedPage(base, force = true)
                     refreshSites(base)
                     triggerLocationAndDerive()
+                    loadHome()
                 } else {
                     val errorBodyMsg = try {
                         val err = response.errorBody()?.string()
@@ -864,13 +892,15 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             preferencesRepository.clearDeviceLogin()
             networkClientManager.currentDeviceToken = ""
             AreaTrackService.stop(getApplication())
+            com.example.reminder.ReminderScheduler.cancel(getApplication())
             _uiState.update {
                 it.copy(
                     deviceToken = "",
                     loggedInUserName = "",
                     isAdmin = false,
                     showSettingsDialog = false,
-                    areaTracking = false
+                    areaTracking = false,
+                    home = null
                 )
             }
         }
@@ -1000,9 +1030,12 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 val acc = _uiState.value.currentAccuracy?.toInt()
                 val accMsg = if (acc != null) " (±${acc}m)" else ""
                 val s = com.example.lang.LangManager.getStrings(_uiState.value.appLanguage)
+                val siteName = nearestSiteName(standing.latitude, standing.longitude)
+                val radius = cachedSites.firstOrNull { it.name == siteName }?.radiusM ?: 0
+                val siteLine = if (siteName.isNotBlank() && radius > 0) "\n" + s.insideSiteRadius.replace("{site}", siteName).replace("{r}", radius.toString()) else ""
                 showToast(
                     ToastType.SUCCESS,
-                    "${s.locationUpdated}$accMsg: ${standing.landmark.take(35)}",
+                    "${s.locationUpdated}$accMsg: ${standing.landmark.take(35)}$siteLine",
                     3500L
                 )
             }
@@ -1348,7 +1381,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     /**
      * Posts the punch (attendance_api/store). Falls back to the offline queue when there is no internet.
      */
-    private fun submitAttendance(isAuto: Boolean) {
+    private fun submitAttendance(isAuto: Boolean, nonBiometric: Boolean = false) {
         val state = _uiState.value
         if (state.isPosting) return
         if (state.deviceToken.isBlank()) {
@@ -1357,7 +1390,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
 
         val validDescriptors = descriptorBuffer.filter { it.size == 128 }
-        if (validDescriptors.isEmpty()) {
+        if (validDescriptors.isEmpty() && !nonBiometric) {
             showToast(ToastType.ERROR, "No face detected. Please face the camera directly.", 4000L)
             _uiState.update { it.copy(buttonState = AttendanceButtonState.CAPTURE, statusText = "No face detected") }
             return
@@ -1371,7 +1404,11 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
         }
 
         if (!networkClientManager.isOnline()) {
-            saveOfflinePunch(state, validDescriptors)
+            if (nonBiometric) {
+                showToast(ToastType.ERROR, com.example.lang.LangManager.getStrings(state.appLanguage).nonBioNeedsInternet, 4000L)
+            } else {
+                saveOfflinePunch(state, validDescriptors)
+            }
             return
         }
 
@@ -1399,8 +1436,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     }
                 }
 
-                val avgDescriptor = averageDescriptors(validDescriptors)
-                val descriptorJson = formatDescriptorJson(avgDescriptor)
+                val descriptorJson = if (nonBiometric) "" else formatDescriptorJson(averageDescriptors(validDescriptors))
 
                 val attendanceType = if (state.activeToggle == "OUT") "check_out" else "check_in"
                 val selectedLoc = _uiState.value.selectedLocation?.pureName() ?: ""
@@ -1415,7 +1451,8 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     landmark = knownLandmark,
                     notes = state.notes,
                     attendanceType = attendanceType,
-                    selectedDerivedLocation = selectedLoc
+                    selectedDerivedLocation = selectedLoc,
+                    nonBiometric = if (nonBiometric) 1 else null
                 )
 
                 lastSubmitTime = System.currentTimeMillis()
@@ -1513,6 +1550,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                     isOnline = false,
                     isPosting = false,
                     waitingToSend = true,
+                    punchDone = it.punchDone + 1,
                     buttonState = AttendanceButtonState.RETAKE,
                     notes = "",
                     activeToggle = nextToggle,
@@ -1599,6 +1637,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 val success = lastSuccess
                 if (success != null && !failed && !stillQueued) {
                     handleStoreSuccess(success)
+                    showToast(ToastType.SUCCESS, com.example.lang.LangManager.getStrings(_uiState.value.appLanguage).syncedLabel, 5000L)
                 } else if (success != null) {
                     _uiState.update { it.copy(isPosting = false, waitingToSend = stillQueued, buttonState = AttendanceButtonState.CAPTURE) }
                     showToast(ToastType.INFO, "Some offline attendance synced. The rest will send when internet is stable.", 5000L)
@@ -1684,6 +1723,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
      * Punch accepted: shows the message, flips IN / OUT and starts or stops area tracking.
      */
     private fun handleStoreSuccess(res: StoreAttendanceResponse) {
+        faceFailCount = 0
         val successMsg = res.message ?: "Attendance marked"
         showToast(ToastType.SUCCESS, successMsg, 7000L)
 
@@ -1703,12 +1743,17 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             selectedInCheckoutAt = null
         )
 
+        // Remember when this visit started so the Home timer survives restarts even if the server summary lags.
+        getApplication<android.app.Application>().getSharedPreferences("home_prefs", android.content.Context.MODE_PRIVATE).edit().apply {
+            if (nextToggle == "OUT") putLong("checkin_ms", System.currentTimeMillis()) else remove("checkin_ms")
+        }.apply()
         _uiState.update {
             it.copy(
                 isPosting = false,
                 waitingToSend = false,
                 buttonState = AttendanceButtonState.RETAKE,
                 notes = "", // Clear notes
+                punchDone = it.punchDone + 1,
                 activeToggle = nextToggle,
                 lastActivityText = activity.text,
                 statusText = successMsg
@@ -1737,6 +1782,13 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             )
         }
         syncAreaTracking(res)
+        // Show the new state at once; the refresh below confirms it from the server.
+        _uiState.update { st ->
+            val h = st.home
+            val t = h?.today
+            if (h != null && t != null) st.copy(home = h.copy(today = t.copy(state = if (nextToggle == "OUT") "in" else "out"))) else st
+        }
+        loadHome()
 
         // Clear descriptor buffer after successful submission
         descriptorBuffer.clear()
@@ -1790,6 +1842,14 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
      * Punch rejected: shows the error, or the site picker when several sites are nearby.
      */
     private fun handleStoreError(rawMessage: String) {
+        // Three failed face matches in a row: offer a check-in without a face scan.
+        if (rawMessage.contains("Face not recognized", ignoreCase = true)) {
+            faceFailCount++
+            if (faceFailCount >= 3) {
+                faceFailCount = 0
+                _uiState.update { it.copy(offerNonBiometric = true) }
+            }
+        }
         val isMultipleLocs = rawMessage.contains("Multiple nearby locations found", ignoreCase = true)
 
         if (isMultipleLocs) {
@@ -1908,6 +1968,363 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     private fun formatDescriptorJson(descriptor: List<Float>): String {
         return descriptor.joinToString(prefix = "[", postfix = "]", separator = ",") {
             String.format(Locale.US, "%.6f", it)
+        }
+    }
+
+    /**
+     * Loads attendance_api/home_summary: shift, today status, request card, announcements, stats and thought.
+     */
+    fun loadHome() {
+        val token = _uiState.value.deviceToken
+        if (token.isBlank() || !networkClientManager.isOnline()) return
+        viewModelScope.launch {
+            val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
+            if (base.isBlank()) return@launch
+            _uiState.update { it.copy(isHomeLoading = true) }
+            try {
+                val response = networkClientManager.attendanceService.getHomeSummary(
+                    url = "${base}attendance_api/home_summary",
+                    token = token
+                )
+                val body = response.body()
+                if (response.isSuccessful && body?.status.equals("success", ignoreCase = true)) {
+                    _uiState.update {
+                        it.copy(
+                            home = body,
+                            isHomeLoading = false,
+                            loggedInUserName = body?.user?.name?.takeIf { n -> n.isNotBlank() } ?: it.loggedInUserName
+                        )
+                    }
+                    loadVisit()
+                    com.example.reminder.ReminderScheduler.pollNow(getApplication())
+                    body?.shift?.start?.takeIf { it.isNotBlank() }?.let { com.example.reminder.ReminderScheduler.schedule(getApplication(), it, _uiState.value.appLanguage, body?.shift?.graceMin ?: 0, body?.shift?.weeklyOff.orEmpty()) }
+                    // Face-first: the first time the app opens and the person is not in yet, go straight to the scan.
+                    if (!faceFirstHandled) {
+                        faceFirstHandled = true
+                        val st = _uiState.value
+                        if (st.isAutoSubmitEnabled && body?.today?.state == "not_in" && st.cameraAllowed && st.locationAllowed) {
+                            _uiState.update { it.copy(openScanRequest = true) }
+                        }
+                    }
+                } else {
+                    _uiState.update { it.copy(isHomeLoading = false) }
+                    if (response.code() == 401) logout()
+                }
+            } catch (e: Exception) {
+                AppLogger.w("Home", "home_summary failed: ${e.message}")
+                _uiState.update { it.copy(isHomeLoading = false) }
+            }
+        }
+    }
+
+    /**
+     * Sends a quick day update (running late / WFH / can't come / leave) to the manager.
+     */
+    fun sendQuickUpdate(fields: Map<String, String>, voice: java.io.File?, onSent: () -> Unit) {
+        val token = _uiState.value.deviceToken
+        if (token.isBlank() || _uiState.value.isSendingQuick) return
+        viewModelScope.launch {
+            val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
+            _uiState.update { it.copy(isSendingQuick = true, quickUpdateError = null) }
+            try {
+                val response = networkClientManager.attendanceService.quickUpdate(
+                    url = "${base}attendance_api/quick_update",
+                    token = token,
+                    fields = if (voice != null) fields + ("voice" to encodeVoice(voice)) else fields
+                )
+                val body = response.body()
+                if (response.isSuccessful && body?.status.equals("success", ignoreCase = true)) {
+                    _uiState.update {
+                        it.copy(
+                            isSendingQuick = false,
+                            home = it.home?.copy(request = body?.request)
+                        )
+                    }
+                    onSent()
+                    loadHome()
+                } else {
+                    val msg = body?.message ?: errorMessageOf(response.errorBody()?.string()) ?: "Could not send. Try again."
+                    _uiState.update { it.copy(isSendingQuick = false, quickUpdateError = msg) }
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSendingQuick = false, quickUpdateError = e.localizedMessage ?: "No connection.") }
+            }
+        }
+    }
+
+    fun loadVisit() {
+        val token = _uiState.value.deviceToken
+        if (token.isBlank() || !networkClientManager.isOnline()) return
+        viewModelScope.launch {
+            val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
+            try {
+                val r = networkClientManager.attendanceService.getVisitContext("${base}attendance_api/visit_context", token)
+                val body = r.body()
+                if (r.isSuccessful && body?.status.equals("success", ignoreCase = true)) {
+                    _uiState.update { it.copy(visit = body) }
+                }
+            } catch (e: Exception) {
+                AppLogger.w("Home", "visit_context failed: ${e.message}")
+            }
+        }
+    }
+
+    fun loadVisitDetails() {
+        val token = _uiState.value.deviceToken
+        if (token.isBlank() || !networkClientManager.isOnline()) return
+        viewModelScope.launch {
+            val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
+            try {
+                val r = networkClientManager.attendanceService.getVisitDetails("${base}attendance_api/visit_details", token)
+                val body = r.body()
+                if (r.isSuccessful && body?.status.equals("success", ignoreCase = true)) {
+                    _uiState.update { it.copy(visitDetails = body) }
+                }
+            } catch (e: Exception) {
+                AppLogger.w("Home", "visit_details failed: ${e.message}")
+            }
+        }
+    }
+
+    /** kind: note | photo | voice. file is base64 (photo JPEG / voice m4a). */
+    fun sendVisitNote(kind: String, text: String, file: String?, savedMessage: String) {
+        val token = _uiState.value.deviceToken
+        if (token.isBlank()) return
+        viewModelScope.launch {
+            val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
+            val fields = mutableMapOf("kind" to kind, "text" to text)
+            if (!file.isNullOrBlank()) fields["file"] = file
+            try {
+                val r = networkClientManager.attendanceService.visitNote("${base}attendance_api/visit_note", token, fields)
+                val body = r.body()
+                if (r.isSuccessful && body?.status.equals("success", ignoreCase = true)) {
+                    showToast(ToastType.SUCCESS, savedMessage, 2500L)
+                } else {
+                    showToast(ToastType.ERROR, body?.message ?: errorMessageOf(r.errorBody()?.string()) ?: "Could not save.", 4000L)
+                }
+            } catch (e: Exception) {
+                showToast(ToastType.ERROR, e.localizedMessage ?: "No connection.", 4000L)
+            }
+        }
+    }
+
+    fun encodeVoiceFile(file: java.io.File): String = encodeVoice(file)
+
+    fun consumeOpenScan() {
+        _uiState.update { it.copy(openScanRequest = false) }
+    }
+
+    fun clearQuickUpdateError() {
+        _uiState.update { it.copy(quickUpdateError = null) }
+    }
+
+    /**
+     * Undo a sent / pending request, or hide an answered one from the home card.
+     */
+    fun undoQuickUpdate(id: Int, dismiss: Boolean = false) {
+        val token = _uiState.value.deviceToken
+        if (token.isBlank()) return
+        viewModelScope.launch {
+            val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
+            try {
+                networkClientManager.attendanceService.quickUpdateUndo(
+                    url = "${base}attendance_api/quick_update_undo",
+                    token = token,
+                    id = id,
+                    dismiss = if (dismiss) 1 else 0
+                )
+            } catch (_: Exception) {
+            }
+            loadHome()
+        }
+    }
+
+    fun acknowledgeAnnouncement(id: Int) {
+        val token = _uiState.value.deviceToken
+        if (token.isBlank()) return
+        // Optimistic: hide the button at once, the server read receipt follows.
+        _uiState.update { state ->
+            val home = state.home ?: return@update state
+            val list = home.announcements.orEmpty().map { if (it.id == id) it.copy(acknowledged = true) else it }
+            state.copy(home = home.copy(announcements = list, unreadCount = list.count { a -> a.needsAck && !a.acknowledged }))
+        }
+        viewModelScope.launch {
+            val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
+            try {
+                networkClientManager.attendanceService.announcementAck(
+                    url = "${base}attendance_api/announcement_ack",
+                    token = token,
+                    id = id
+                )
+            } catch (_: Exception) {
+                loadHome()
+            }
+        }
+    }
+
+    private var liveTick = 0
+
+    /**
+     * Called every few seconds while the app is on screen: asks the server for new notifications (request approved /
+     * rejected, announcements, Home messages), shows them, and refreshes Home right away when something arrived.
+     */
+    fun syncLive() {
+        val st = _uiState.value
+        if (st.deviceToken.isBlank() || !networkClientManager.isOnline()) return
+        viewModelScope.launch {
+            val shown = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                try { com.example.reminder.ReminderScheduler.poll(getApplication()) } catch (_: Exception) { 0 }
+            }
+            liveTick++
+            if (shown > 0 || liveTick % 8 == 0) loadHome()
+        }
+    }
+
+    private fun readSeenAnnouncements(): Set<Int> =
+        getApplication<android.app.Application>().getSharedPreferences("home_prefs", android.content.Context.MODE_PRIVATE)
+            .getStringSet("seen_announcements", emptySet()).orEmpty().mapNotNull { it.toIntOrNull() }.toSet()
+
+    /** Opens the list and marks everything in it as seen, so the bell count goes away. */
+    fun openAnnouncements() {
+        val seen = readSeenAnnouncements() + _uiState.value.home?.announcements.orEmpty().map { it.id }
+        getApplication<android.app.Application>().getSharedPreferences("home_prefs", android.content.Context.MODE_PRIVATE)
+            .edit().putStringSet("seen_announcements", seen.map { it.toString() }.toSet()).apply()
+        _uiState.update { it.copy(showAnnouncements = true, seenAnnouncementIds = seen) }
+    }
+
+    fun closeAnnouncements() {
+        _uiState.update { it.copy(showAnnouncements = false) }
+    }
+
+    /**
+     * Saves the end-of-day note and optional mood (1 = rough .. 5 = great).
+     */
+    fun saveDayWrapup(note: String, mood: Int, savedMessage: String) {
+        val token = _uiState.value.deviceToken
+        if (token.isBlank()) return
+        viewModelScope.launch {
+            val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
+            try {
+                val response = networkClientManager.attendanceService.dayWrapup(
+                    url = "${base}attendance_api/day_wrapup",
+                    token = token,
+                    note = note,
+                    mood = mood
+                )
+                val body = response.body()
+                if (response.isSuccessful && body?.status.equals("success", ignoreCase = true)) {
+                    _uiState.update {
+                        it.copy(home = it.home?.copy(wrapup = com.example.data.model.HomeWrapup(note = note, mood = mood.takeIf { m -> m in 1..5 })))
+                    }
+                    showToast(ToastType.SUCCESS, savedMessage, 2500L)
+                } else {
+                    showToast(ToastType.ERROR, body?.message ?: errorMessageOf(response.errorBody()?.string()) ?: "Could not save.", 4000L)
+                }
+            } catch (e: Exception) {
+                AppLogger.w("Home", "day_wrapup failed: ${e.message}")
+                showToast(ToastType.ERROR, e.localizedMessage ?: "No connection.", 4000L)
+            }
+        }
+    }
+
+    fun dismissNonBiometric() {
+        _uiState.update { it.copy(offerNonBiometric = false) }
+    }
+
+    /** Check in / out without a face scan after repeated match failures; the server marks it for the manager. */
+    fun confirmNonBiometric() {
+        _uiState.update { it.copy(offerNonBiometric = false) }
+        submitAttendance(isAuto = false, nonBiometric = true)
+    }
+
+    private fun encodeVoice(file: java.io.File): String = try {
+        android.util.Base64.encodeToString(file.readBytes(), android.util.Base64.NO_WRAP)
+    } catch (_: Exception) {
+        ""
+    }
+
+    private fun errorMessageOf(raw: String?): String? {
+        if (raw.isNullOrBlank()) return null
+        return try {
+            JSONObject(raw).optString("message").ifBlank { null }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Loads attendance_api/records for one month (YYYY-MM).
+     */
+    fun loadRecords(month: String) {
+        val token = _uiState.value.deviceToken
+        if (token.isBlank() || !networkClientManager.isOnline()) return
+        viewModelScope.launch {
+            val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
+            _uiState.update { it.copy(isRecordsLoading = true) }
+            try {
+                val response = networkClientManager.attendanceService.getRecords(
+                    url = "${base}attendance_api/records", token = token, month = month
+                )
+                val body = response.body()
+                _uiState.update {
+                    it.copy(
+                        isRecordsLoading = false,
+                        records = if (response.isSuccessful && body?.status.equals("success", ignoreCase = true)) body else it.records
+                    )
+                }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(isRecordsLoading = false) }
+            }
+        }
+    }
+
+    /**
+     * Loads attendance_api/my_day: today's shift, punches and breaks.
+     */
+    fun loadMyDay() {
+        val token = _uiState.value.deviceToken
+        if (token.isBlank() || !networkClientManager.isOnline()) return
+        viewModelScope.launch {
+            val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
+            _uiState.update { it.copy(isMyDayLoading = true) }
+            try {
+                val response = networkClientManager.attendanceService.getMyDay(url = "${base}attendance_api/my_day", token = token)
+                val body = response.body()
+                _uiState.update {
+                    it.copy(
+                        isMyDayLoading = false,
+                        myDay = if (response.isSuccessful && body?.status.equals("success", ignoreCase = true)) body else it.myDay
+                    )
+                }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(isMyDayLoading = false) }
+            }
+        }
+    }
+
+    /**
+     * One-tap correction of a forgotten check-out; the reporting manager approves it.
+     */
+    fun sendMissedPunchFix(attendanceId: Int, checkoutTime: String, sentMessage: String) {
+        val token = _uiState.value.deviceToken
+        if (token.isBlank()) return
+        viewModelScope.launch {
+            val base = networkClientManager.sanitizeBaseUrl(_uiState.value.baseUrl)
+            try {
+                val response = networkClientManager.attendanceService.fixMissedPunch(
+                    url = "${base}attendance_api/fix_missed_punch", token = token,
+                    attendanceId = attendanceId, checkoutTime = checkoutTime
+                )
+                val body = response.body()
+                if (response.isSuccessful && body?.status.equals("success", ignoreCase = true)) {
+                    showToast(ToastType.SUCCESS, sentMessage, 4000L)
+                } else {
+                    showToast(ToastType.ERROR, body?.message ?: errorMessageOf(response.errorBody()?.string()) ?: "Could not send.", 5000L)
+                }
+            } catch (e: Exception) {
+                showToast(ToastType.ERROR, e.localizedMessage ?: "No connection.", 5000L)
+            }
+            loadHome()
         }
     }
 
