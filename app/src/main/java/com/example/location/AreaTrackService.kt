@@ -187,6 +187,9 @@ class AreaTrackService : Service() {
                 val saved = postArea(watch, lat, lng)
                 if (saved != null) {
                     AreaTrackStore.updateInside(this@AreaTrackService, saved)
+                    if (!saved) {
+                        com.example.reminder.ReminderScheduler.notifyLeftSite(this@AreaTrackService, watch.locationName)
+                    }
                 }
             } finally {
                 posting.set(false)
