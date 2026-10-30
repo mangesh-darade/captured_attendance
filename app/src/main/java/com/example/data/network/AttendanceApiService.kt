@@ -7,6 +7,7 @@ import com.example.data.model.StoreAttendanceResponse
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.Field
+import retrofit2.http.FieldMap
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
 import retrofit2.http.Header
@@ -90,8 +91,91 @@ interface AttendanceApiService {
         @Field("attendance_type") attendanceType: String,
         @Field("selected_derived_location") selectedDerivedLocation: String,
         @Field("token") token: String? = null,
-        @Field("punched_at") punchedAt: String? = null
+        @Field("punched_at") punchedAt: String? = null,
+        @Field("non_biometric") nonBiometric: Int? = null
     ): Response<StoreAttendanceResponse>
+
+    @GET
+    suspend fun getHomeSummary(
+        @Url url: String,
+        @Query("token") token: String
+    ): Response<com.example.data.model.HomeSummaryResponse>
+
+    @FormUrlEncoded
+    @POST
+    suspend fun quickUpdate(
+        @Url url: String,
+        @Field("token") token: String,
+        @FieldMap fields: Map<String, String>
+    ): Response<com.example.data.model.QuickUpdateResponse>
+
+    @FormUrlEncoded
+    @POST
+    suspend fun quickUpdateUndo(
+        @Url url: String,
+        @Field("token") token: String,
+        @Field("id") id: Int,
+        @Field("dismiss") dismiss: Int = 0
+    ): Response<com.example.data.model.SimpleResponse>
+
+    @FormUrlEncoded
+    @POST
+    suspend fun announcementAck(
+        @Url url: String,
+        @Field("token") token: String,
+        @Field("id") id: Int
+    ): Response<com.example.data.model.SimpleResponse>
+
+    @FormUrlEncoded
+    @POST
+    suspend fun dayWrapup(
+        @Url url: String,
+        @Field("token") token: String,
+        @Field("note") note: String,
+        @Field("mood") mood: Int
+    ): Response<com.example.data.model.SimpleResponse>
+
+    @GET
+    suspend fun getRecords(
+        @Url url: String,
+        @Query("token") token: String,
+        @Query("month") month: String
+    ): Response<com.example.data.model.RecordsResponse>
+
+    @GET
+    suspend fun getVisitContext(
+        @Url url: String,
+        @Query("token") token: String
+    ): Response<com.example.data.model.VisitContext>
+
+    @GET
+    suspend fun getVisitDetails(
+        @Url url: String,
+        @Query("token") token: String
+    ): Response<com.example.data.model.VisitDetails>
+
+    @FormUrlEncoded
+    @POST
+    suspend fun visitNote(
+        @Url url: String,
+        @Field("token") token: String,
+        @FieldMap fields: Map<String, String>
+    ): Response<com.example.data.model.SimpleResponse>
+
+    @GET
+    suspend fun getMyDay(
+        @Url url: String,
+        @Query("token") token: String
+    ): Response<com.example.data.model.MyDayResponse>
+
+    @FormUrlEncoded
+    @POST
+    suspend fun fixMissedPunch(
+        @Url url: String,
+        @Field("token") token: String,
+        @Field("attendance_id") attendanceId: Int,
+        @Field("checkout_time") checkoutTime: String
+    ): Response<com.example.data.model.QuickUpdateResponse>
 
     @GET
     suspend fun getSites(@Url url: String): Response<ResponseBody>

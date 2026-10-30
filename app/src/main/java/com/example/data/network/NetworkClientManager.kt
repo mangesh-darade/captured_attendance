@@ -62,10 +62,16 @@ class NetworkClientManager(private val context: Context) {
 
     var currentDeviceToken: String = ""
 
+    /** Selected app language (en, mr, hi, gu); the server returns its messages in it. */
+    @Volatile var currentLanguage: String = "en"
+
     private val authInterceptor = okhttp3.Interceptor { chain ->
         val original = chain.request()
         val builder = original.newBuilder()
         val host = original.url.host
+        if (!host.contains("openstreetmap.org")) {
+            builder.header("X-App-Lang", currentLanguage)
+        }
         if (currentDeviceToken.isNotBlank() && !host.contains("openstreetmap.org")) {
             builder.header("Authorization", "Bearer $currentDeviceToken")
         }
